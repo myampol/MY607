@@ -1,0 +1,283 @@
+---
+title: "DATA607-Week1-Mushrooms"
+author: "Michael Y."
+date: "September 2, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+## Assignment 1 - Loading Data into a Data Frame - Mushroom Dataset
+
+###Mushrooms Dataset
+A famous-if slightly moldy-dataset about mushrooms can be found in the UCI repository here: 
+https://archive.ics.uci.edu/ml/datasets/Mushroom
+The fact that this is such a well-known dataset in the data science community makes it a good dataset to use for comparative benchmarking.  For example, if someone was working to build a better decision tree algorithm 
+(or other predictive classifier) to analyze categorical data, this dataset could be useful.  A typical problem (which is beyond the scope of this assignment!) is to answer the question, 
+
+###"Which other attribute or attributes are the best predictors of whether a particular mushroom is poisonous or edible?"
+
+Your task is to study the dataset and the associated description of the data (i.e. "data dictionary"). You may need to look around a bit, but it's there! 
+You should take the data, 
+
+
+```{r obtain-the-data-from-UCI}
+setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week01/Week01-AssignmentLab-MushroomDatabase")
+download.file('https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data', 'mushroom-database.csv')
+```
+### Create a data frame with a subset of the columns in the dataset. 
+(First, I'll create a dataframe with all 23 columns:)
+```{r}
+mushroom_df <- read.csv('mushroom-database.csv', header=FALSE, stringsAsFactors=TRUE)
+```
+According to the documentation, the size of the data frame should be 8124x3. 
+Checking:
+```{r check-df-dimension}
+dim(mushroom_df)
+
+```
+
+### Determine which lines represent  poisonous mushrooms by converting to a 0/1 variable, usable in logistic regression 
+```{r}
+poisonous <- mushroom_df$V1=="p"
+poisonous=as.integer(poisonous)
+head(mushroom_df$V1)
+head(poisonous)
+```
+
+###get metadata -- info about the data
+
+```{r get-metadata}
+download.file('https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.names', 'mushroom-info.txt')
+# read the lines into R
+mushroom_meta=readLines(con="mushroom-info.txt")
+```
+
+### we only care about metalines 106-140
+
+```{r trim-metadata}
+mushroom_meta2 = mushroom_meta[106:140]   
+# trim the whitespace on the overflow lines
+mushroom_meta2 = trimws(mushroom_meta2)
+mushroom_meta2
+```
+
+### attributes with many values are split onto two lines
+Lines starting an attribute start with a number, while rollover lines start with a letter.
+Let's create a function which will join the rollover lines onto the starting lines:
+(There is probably a cleaner way to do this, but this is what I can do for now)
+
+```{r pastearray-function}
+
+pastearray = function(chararray) {
+# take an array of character strings
+# some lines start with a number, while other lines start with a letter
+# the lines which start with a letter are to be pasted at the end of the preceding line, 
+# and the array is to be shortened
+  
+# first, determine which lines start with a number, and which with a letter
+  # which lines in chararray start with a number, vs a letter?
+  firstc <- substr(chararray,start = 1,stop = 1)          #Select the first character from each line
+  firstc_numeric <- suppressWarnings(as.numeric(firstc))  # cast each character as numeric; characters return NA
+                                                          # I don't want to see the warning messages, so suppress them
+  firstc_not_numeric = sapply(firstc_numeric,is.na)       # true for each continuation line
+  firstc_is_numeric = !firstc_not_numeric
+  firstc_is_numeric
+  chararray[firstc_is_numeric]
+  
+  tempoutputarray = NULL
+  tempoutputline = ""
+  j = 0
+  for (i in 1:length(chararray))
+    {  
+    if (firstc_is_numeric[i]) {
+      # we are starting a new line, so print out the prior line assemblage -- 
+      if (i>1) {
+      # unless we are at the very beginning, in which case there is nothing to print      
+        j=j+1
+        tempoutputarray[j]=tempoutputline
+        #####print(paste(j,": ",  tempoutputarray[j]))
+        # reset to blank line
+        tempoutputline=""
+      }  
+    # set this line as the newline
+    tempoutputline = chararray[i]  
+    }
+    else if (firstc_not_numeric[i])  # we are on a continuation !!!!! 
+      {
+      tempoutputline = paste0(tempoutputline, chararray[i])   # paste this line onto the previous line
+      #####print(paste("*** pasting ", i, j, tempoutputline))
+    }
+  }
+  # when we reach the end, we still have to print out the prior line
+  j=j+1
+  tempoutputarray[j]=tempoutputline
+  #####print(paste(j,": ",  tempoutputarray[j]))
+  #####print ( paste(i,",",chararray[i]))
+  return(tempoutputarray)
+}
+```
+
+Apply this function to the above mushroom_meta 
+
+```{r run-pastearray}
+mushroom_meta2 = pastearray(mushroom_meta2)
+mushroom_meta2
+```
+
+Success, now there are only 23 rows, each representing one column.
+
+Modify the first line to resemble the other lines. 
+Since ascertaining whether poisonous vs. edible is the TARGET, I'll relabel this line as such.
+```{r Replace-first-line}
+############
+############
+firstline = mushroom_meta2[1]
+######firstline
+# change the front part of the line
+firstline = sub(pattern="7. Attribute Information: (classes:", replacement="0. TARGET:                  ", x=firstline, fixed=TRUE)
+######firstline
+# change the rear part of the line - remove the space and the final right parens
+firstline = sub(pattern=", poisonous=p)", replacement=",poisonous=p", x=firstline, fixed=TRUE)
+######firstline
+#################################
+mushroom_meta2[1]=firstline
+mushroom_meta2
+###################################
+
+```
+
+Extract the list of attribute names from the above
+```{r}
+names1=gsub(pattern=":.*$", replacement = "", x=mushroom_meta2)
+#names1
+names2=gsub(pattern="^[0-9]*. ", replacement = "", x=names1, perl=FALSE)
+#names2
+# replace hyphens with underscores or it will cause problems later
+names3=gsub(pattern="-", replacement="_", x=names2)
+names3
+```
+
+extract the list of factors (their descriptive names, and their single character abbreviations) from each line
+```{r}
+factors1 = gsub(pattern="^.*:  *",replacement="",x=mushroom_meta2)
+factors1
+```
+### rename the factors with the descriptive names
+(I had to do set this up externally because I couldn't get the proper processing of the quotation marks in R)
+```{r rename-the-factors}
+
+levels(mushroom_df$V1)
+levels(mushroom_df$V1) <-  list(edible="e",poisonous="p")
+levels(mushroom_df$V1)
+levels(mushroom_df$V2) <-  list(bell="b",conical="c",convex="x",flat="f",knobbed="k",sunken="s")
+levels(mushroom_df$V3) <-  list(fibrous="f",grooves="g",scaly="y",smooth="s")
+levels(mushroom_df$V4) <-  list(brown="n",buff="b",cinnamon="c",gray="g",green="r",pink="p",purple="u",red="e",white="w",yellow="y")
+levels(mushroom_df$V5) <-  list(bruises="t",no="f")
+
+levels(mushroom_df$V6)
+levels(mushroom_df$V6) <-  list(almond="a",anise="l",creosote="c",fishy="y",foul="f",musty="m",none="n",pungent="p",spicy="s")
+levels(mushroom_df$V6)
+
+levels(mushroom_df$V7) <-  list(attached="a",descending="d",free="f",notched="n")
+levels(mushroom_df$V8) <-  list(close="c",crowded="w",distant="d")
+levels(mushroom_df$V9) <-  list(broad="b",narrow="n")
+levels(mushroom_df$V10) <-  list(black="k",brown="n",buff="b",chocolate="h",gray="g",green="r",orange="o",pink="p",purple="u",red="e",white="w",yellow="y")
+levels(mushroom_df$V11) <-  list(enlarging="e",tapering="t")
+levels(mushroom_df$V12) <-  list(bulbous="b",club="c",cup="u",equal="e",rhizomorphs="z",rooted="r",missing="?")
+levels(mushroom_df$V13) <-  list(fibrous="f",scaly="y",silky="k",smooth="s")
+levels(mushroom_df$V14) <-  list(fibrous="f",scaly="y",silky="k",smooth="s")
+levels(mushroom_df$V15) <-  list(brown="n",buff="b",cinnamon="c",gray="g",orange="o",pink="p",red="e",white="w",yellow="y")
+levels(mushroom_df$V16) <-  list(brown="n",buff="b",cinnamon="c",gray="g",orange="o",pink="p",red="e",white="w",yellow="y")
+levels(mushroom_df$V17) <-  list(partial="p",universal="u")
+levels(mushroom_df$V18) <-  list(brown="n",orange="o",white="w",yellow="y")
+levels(mushroom_df$V19) <-  list(none="n",one="o",two="t")
+levels(mushroom_df$V20) <-  list(cobwebby="c",evanescent="e",flaring="f",large="l",none="n",pendant="p",sheathing="s",zone="z")
+levels(mushroom_df$V21) <-  list(black="k",brown="n",buff="b",chocolate="h",green="r",orange="o",purple="u",white="w",yellow="y")
+levels(mushroom_df$V22) <-  list(abundant="a",clustered="c",numerous="n",scattered="s",several="v",solitary="y")
+levels(mushroom_df$V23) <-  list(grasses="g",leaves="l",meadows="m",paths="p",urban="u",waste="w",woods="d")
+summary(mushroom_df)
+```
+###Now, replace the names of the columns in the data set with descriptive attribute names (with underscores replacing hyphens:
+```{r rename-the-columns}
+names(mushroom_df)=names3
+head(mushroom_df)
+```
+
+
+```{r}
+summary(mushroom_df)
+
+```
+
+###According to the documentation, a small number of columns provide an excellent prediction of which mushrooms are poisonous:
+
+These columns are odor, spore-print-color, stalk-surface-below-ring, and stalk-color-above-ring 
+Rule #1: odor (V6) is not Almond ("a"), Anise ("l"), or None ("n")
+Rule #2: spore-print-color (V21) is Green ("r")
+Rule #3: odor (V6) is None ("n") AND stalk-surface-below-ring (V14) is Scaly ("y") AND stalk-color-above-ring (V15) is NOT brown (n)
+```{r}
+
+# Rule1: odor (V6) is NOT (Almond , Anise , or None) 
+rule1 = (!(mushroom_df$odor == "almond" | mushroom_df$odor == "anise" | mushroom_df$odor == "none"))
+sum(as.integer(rule1))
+
+# Rule2: spore-print-color is Green
+rule2 = (mushroom_df$spore_print_color== "green")
+sum(as.integer(rule2))
+
+# Rule3: odor is None AND 
+#       stalk-surface-below-ring is Scaly AND 
+#       stalk-color-above-ring is NOT brown
+rule3 = ((mushroom_df$odor == "none") & (mushroom_df$stalk_surface_below_ring == "scaly" )&( mushroom_df$stalk_color_above_ring != "brown"))
+sum(as.integer(rule3))
+
+# run logistic regression using just rule 1
+mmodel1 <- glm(poisonous ~ rule1, data = mushroom_df, family="binomial")
+summary(mmodel1)
+model1predictor <- (as.integer(mmodel1$residuals)==1)
+model1errors <- sum(as.integer(model1predictor != poisonous))
+model1errors
+
+# run logistic regression using rules 1 and 2
+mmodel2 <- glm(poisonous ~ rule1 + rule2, data = mushroom_df, family="binomial")
+summary(mmodel2)
+model2predictor <- (as.integer(mmodel2$residuals)==1)
+model2errors <- sum(as.integer(model2predictor != poisonous))
+model2errors
+
+# run logistic regression using rules 1, 2 and 3
+mmodel3 <- glm(poisonous ~ rule1 + rule2 + rule3, data = mushroom_df, family="binomial")
+summary(mmodel3)
+model3predictor <- (as.integer(mmodel3$residuals)==1)
+model3errors <- sum(as.integer(model3predictor != poisonous))
+model3errors
+
+```
+
+Combining the first three rules gives a result which misses only 8 poisonous mushrooms.
+
+# subsetting the data
+
+You should include the column that indicates edible or poisonous and three or four other columns. 
+
+You should also add meaningful column names and replace the abbreviations used in the data-for example, in the appropriate column, "e" might become "edible." 
+
+```{r}
+mushroom_subsetdf = subset(mushroom_df, select=c(TARGET, odor, spore_print_color, stalk_surface_below_ring, stalk_color_above_ring))
+head(mushroom_subsetdf)
+
+```
+
+```{r}
+summary(mushroom_subsetdf)
+```
+
+Your deliverable is the R code to perform these transformation tasks.
+
