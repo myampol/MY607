@@ -1,0 +1,172 @@
+---
+title: "MichaelY-DATA607-Week02-Movies"
+author: "Michael Y."
+date: "September 9, 2018"
+output:
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Assignment 2: Movies Database
+
+###  __Already done:__
+
+####  Choose six recent popular movies. 
+####  Ask at least five people that you know (friends, family, classmates, imaginary friends) 
+####  to rate each of these movies that they have seen on a scale of 1 to 5. 
+####  Take the results (observations) and store them in a SQL database. 
+
+###  __To be done here:__    Load the information into an R dataframe, and examine it.
+
+
+##### Load up some libraries
+```{r load-libraries, eval=TRUE}
+library(RMySQL)
+library(dplyr)
+library(ggplot2)
+library(psych)
+```
+
+##### Connect to the MySql database and retrieve the data:
+```{r get-the-data, eval=TRUE}
+
+# I created "stduser" as a read-only account in my database which only has "select" privilege
+connstd <- dbConnect(MySQL(), user="stduser", password="password", 
+                     dbname="Week2_Movies", host="localhost")
+
+# create a query which joins the 3 database tables, 
+# replacing the auto-generated ID codes with the movie names and the reviewers' names
+
+query <- 'Select M.Movie_title, F.Friend_name, R.Rating
+          From Movies as M, Friends as F, Ratings as R
+          Where (M.Movie_id = R.Movie_ID AND F.Friend_id = R.Friend_ID);'
+
+# execute the query
+result <- dbGetQuery(connstd, query)
+
+# close the database connection
+discard <- dbDisconnect(connstd) # this function returns "TRUE", so assignment suppresses printing
+```
+
+##### The dimensions of the results dataframe are `r dim(result)` .
+
+```{r what-did-we-get, eval=TRUE}
+
+# structure of the results dataframe
+str(result)
+```
+
+```{r what-did-we-get2, eval=TRUE}
+# summary of the results dataframe
+summary(result)
+
+```
+
+##### List the results (there are only 30 rows):
+```{r show-the-data, eval=TRUE}
+result
+```
+
+##### Describe the results:
+```{r describe the ratings, eval=TRUE}
+describe(result$Rating)
+```
+##### (Note that there is one "NA" value, which we will have to exclude later.)
+
+
+#### Let's look at the results, grouped by __Movie__  :
+```{r describe-by-Movie, eval=TRUE}
+describeBy(result$Rating,group = result$Movie_title )
+```
+
+##### We need to drop the item with the NA rating in order to obtain non-NA summary results.
+
+##### Subsetting using __!is.na(result$Rating)__  :
+
+```{r summarize-by-Movie, eval=TRUE}
+result[!is.na(result$Rating),] %>%
+  group_by(Movie_title) %>%
+  summarize(count=n(),
+            min=min(Rating),
+            mean=mean(Rating),
+            median=median(Rating),
+            max=max(Rating),
+            sd=sd(Rating),
+            IQR=IQR(Rating)
+            )
+```
+
+##### Now, let's make a boxplot by __Movie__ :
+```{r boxplot-by-Movie, eval=TRUE}
+ggplot(result, aes(x=Movie_title, y=Rating, fill=Movie_title)) + 
+  geom_boxplot() + 
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+###### We can see that Ocean's 8 was quite popular, with mean and median ratings of 4:
+```{r}
+result[result$Movie_title=="Ocean's 8",]
+```
+
+###### while Peter Rabbit was at the opposite end of the spectrum, receiving the lowest ratings:
+```{r}
+result[result$Movie_title=="Peter Rabbit",]
+
+```
+
+
+
+#### Now, Let's look at how each __friend__ tended to rate the films:
+```{r describe-by-Friend, eval=TRUE}
+describeBy(result$Rating,group = result$Friend_name )
+```
+
+##### Again, we have to exclude the item with the NA:
+```{r summarize-by-Friend, eval=TRUE}
+result[!is.na(result$Rating),] %>%
+  group_by(Friend_name) %>%
+  summarize(count=n(),
+            min=min(Rating),
+            mean=mean(Rating),
+            median=median(Rating),
+            max=max(Rating),
+            sd=sd(Rating),
+            IQR=IQR(Rating)
+            )
+```
+
+
+```{r boxplot-by-Friend}
+ggplot(result, aes(x=Friend_name, y=Rating, fill=Friend_name)) + 
+  geom_boxplot() + 
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+###### We observe that Bob either likes a film or hates it -- with Bob, there is no middle ground.  
+###### Bob gave the widest disperion among his ratings, using mostly "1"s and "5"s, which explains his large IQR and standard deviation.  
+######His Median is the lowest, as half his ratings were "1"s:
+```{r}
+result[result$Friend_name=="Bob",]
+```
+
+
+###### Because Dave gave so many ratings of "2", his IQR = 0, thus his box is flat, with outliers at "1" and "5" :
+
+```{r}
+result[result$Friend_name=="Dave",]
+```
+
+
+##### Conclusion:  With a small data set (6 movies and 5 reviewers) the aggregated figures display interesting results across both movie and reviewer.  
+##### It would be interesting to see the results across a larger sample, for example using the data assembled by "Rotton Tomatoes" which tabulates published movie reviews and scores films on a scale of 0%-100% based upon the percentage of reviews which are favorable vs. unfavorable.  
+##### Furthermore, it would be interesting to compare/contrast such "professional" assessments with opinions from individuals, such as those assembled by firms like Amazon.
