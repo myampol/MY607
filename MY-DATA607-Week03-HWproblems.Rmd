@@ -1,0 +1,308 @@
+---
+title: "MY607-Week03-MichaelY"
+author: "Michael Y."
+date: "September 16, 2018"
+output:
+  pdf_document: default
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###### Load some packages
+```{r}
+library(stringr)
+library(readr)
+
+```
+###### fix a directory
+```{r}
+setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week03/")
+```
+
+
+## Exercise 3.
+###Copy the introductory example. The vector ***name*** stores the extracted names.
+```{r}
+raw.data <- "555-1239Moe Szyslak(636) 555-0113Burns, C. Montgomery555-6542Rev. Timothy Lovejoy555 8904Ned Flanders636-555-3226Simpson, Homer5543642Dr. Julius Hibbert"
+name <- unlist(str_extract_all(raw.data, "[[:alpha:]., ]{2,}"))
+name
+phone <- unlist(str_extract_all(raw.data, "\\(?(\\d{3})?\\)?(-| )?\\d{3}(-| )?\\d{4}"))
+phone
+data.frame(name = name, phone = phone)
+
+```
+
+
+####Use the tools of this chapter to rearrange the vector so that all elements conform to the standard first_name last_name.
+
+The above description is a bit unclear -- I am unsure as to whether this means that titles should be stripped out.     
+Also, in the case of an individual like Mr. Burns, are we to use just the letter "C" as his first name?    
+
+I am going to make the assumption that the question is asking us to take those names which are presented as:    
+
+######lastname, firstname    
+
+and rearrange such names so that the comma is removed and the names are presented in the order:   
+
+######firstname lastname    
+
+but in the case of any titles, initials, etc., I am not going to remove them.    
+
+(The instructions should have been more clear if something different was desired.)    
+
+##### **STARTING NAMES:**
+```{r, eval=T}
+name
+```
+
+```{r, eval=T}
+
+for (i in 1:length(name)) {
+  if (str_detect(string = name[i], pattern = ",")) {
+    origname <-unlist(str_split(string = name[i], pattern = ","))
+    flippedname <- str_trim(paste(origname[2], origname[1]))
+    name[i] <- flippedname
+  }
+}
+```
+
+##### **ENDING NAMES:**
+```{r, eval=T}
+name
+```
+###### Note the changes to the names in the center column. 
+    
+    
+    
+####Construct a logical vector indicating whether a character has a title (i.e., Rev. and Dr.).
+
+```{r}
+hastitle = str_detect(string = name, pattern="^Rev\\.|^Dr\\.")
+hastitle
+name[hastitle]
+```
+
+
+####Construct a logical vector indicating whether a character has a second name.
+
+```{r, eval=T}
+### How many parts does each name have?
+numnameparts = unlist(lapply(X = str_split(name," "), FUN = length))
+numnameparts
+cat(paste(numnameparts, name), sep="\n")
+```
+
+If the individual ***has*** a title (i.e.,. "Rev." or "Dr.", then his name must have ***4*** parts to include a middle name.   
+If the individual does ***not*** have a title, then his name must have ***3*** parts to include a middle name.
+
+```{r, eval=T}
+
+hasmiddlename = (hastitle & numnameparts == 4) | (!hastitle & numnameparts == 3)
+hasmiddlename
+name[hasmiddlename]
+```
+
+
+#######################################################################
+
+##Exercise 4.	
+
+###Describe the types of strings that conform to the following regular expressions and construct an example that is matched by the regular expression.
+
+###1.	[0-9]+\\\\$
+
+This matches one or more digits, followed by a dollar-sign "$" character.
+(Note: It does **not** represent digits at the end of a line, because the backslashes preceding the dollar-sign give it its literal meaning, rather than its "end-of-line" meaning.)
+
+```{r regex, eval=T}
+regex1 = '[0-9]+\\$'
+
+a = '1$'
+b = "2$"
+c = '34$'
+d = "56$"
+e = 'xyz7$abc456$789'
+f = "xyz89$abc$234$567"
+g = 'xyz10$abc$asdf$'
+h = "xyz11$abc$123456$asdfg"
+x = "This is a long string with letters$9876 and 1234$numbers - many 56789$numbers"
+example1 <- c(a,b,c,d,e,f,g,h,x)
+
+unlist(str_extract_all(example1, regex(regex1)))
+##example1[grep(regex1, x=example1)]
+unlist(regmatches(x=example1, m=gregexpr(text=example1, pattern=regex1)))
+
+```
+
+##########################################################
+
+###2.	\\\\b[a-z]{1,4}\\\\b
+
+Thus matches any "word" containing between 1 and 4 lower-case letters.  Note that in addition to spaces, a "word boundary" can also be delimited by certain characters such as a dollar-sign ("$")
+```{r, eval=T}
+regex2 = "\\b[a-z]{1,4}\\b"
+example2a = "This is a long sentence containing many words. Now$is$the$winter$of$our$discontent."
+example2b = "This.is.a.long.sentence.containing.many.words. Now-is-the-winter-of-our-discontent."
+example2c = "This:is:a:long:sentence:containing:many:words. Now_is_the_winter_of_our_discontent."
+res1=unlist(str_extract_all(example2a, regex(regex2)))
+cat("\n____example2a_____", paste(1:length(res1),res1), "__________________\n",sep='\n')
+
+res2=unlist(str_extract_all(example2b, regex(regex2)))
+cat("\n____example2b_____", paste(1:length(res2),res2), "__________________\n",sep='\n')
+
+#### the underscores do not constitute word separators, so the last portion will not be captured
+res3=unlist(str_extract_all(example2c, regex(regex2)))
+cat("\n____example2c_____", paste(1:length(res3),res3), "__________________\n",sep='\n')
+
+```
+######Note that the underscores in example2c do not constitute word separators, thus none of the words are taken from the last part of that example.
+
+##########################################################
+
+###3.	.*?\\\\.txt$  
+
+This matches any number of characters (of any kind) followed by ".txt" , which must then conclude the line.
+
+```{r, eval=T}
+regex3 = ".*?\\.txt$"
+example3 = c(
+  "This is a filename.txt", 
+  "Hello123456.txt", 
+  "what is new.txt",
+  "This line will not be selected because .txt is not at the end.",
+  "What if we put a linefeed following .txt\nAnd see what happens?"
+)
+result3=unlist(str_extract_all(example3, regex(regex3)))
+result3
+cat(result3, sep="\n")
+
+```
+
+##########################################################
+
+###4.	\\\\d{2}/\\\\d{2}/\\\\d{4}
+
+This matches the usual way of displaying a date, e.g., mm/dd/yyyy (in the USA) or dd/mm/yyyy (elsewhere.)
+
+```{r, eval=T}
+regex4 = "\\d{2}/\\d{2}/\\d{4}"
+example4 = c(
+"Today is 09/16/2018. Yesterday was 09/15/2018. But, Europeans write 15/09/2018.", 
+"Of course, there are no controls restricting months to be (01:12) or days to be (01:31)",
+"So we could write 00/00/0000 or 99/99/9999 or 12/34/5678 and it would still be selected.",
+"However, we can only use digits, not numbers, so we will not get ab/cd/efgh ."
+)
+unlist(str_extract_all(example4, regex(regex4)))
+```
+
+
+##########################################################
+
+###5.	<(.+?)>.+?</\\\\1>
+
+This identifies an HTML or XML-style block where some tag references the start and end of such block, with ***non-empty*** text in between.  
+The start tag would be something like \<FOO\> and the corresponding end tag would be \</FOO\>.
+```{r, eval=T}
+regex5 = "<(.+?)>.+?</\\1>"
+example5 = c(
+  "<HTML>some content</HTML>",
+  "<b>text content inside block</b>",
+  "<bad>this will not work<bad>",
+  "</bad2>also this will not work<bad2>",
+  "<empty></empty>",
+  "<notempty>x</notempty>",
+  "</maybe>perhaps this will work?<//maybe>"
+)
+unlist(str_extract_all(example5, regex(regex5)))
+
+
+```
+
+##########################################################
+
+## Exercise 9  
+
+####The following code hides a secret message. Crack it with R and regular expressions. Hint: Some of the characters are more revealing than others! The code snippet is also available in the materials at www.r-datacollection.com.
+```{r, eval=T}
+### The code snippet with the secret message is here:
+### http://www.r-datacollection.com/materials/regex/code_exercise.txt
+
+#library(readr)        # loaded above
+
+fileURL="http://www.r-datacollection.com/materials/regex/code_exercise.txt"
+secret <- read_file(fileURL)
+secret
+```
+Let's see if any of the regex classes can help filter out something meaningful:
+```{r, eval=T}
+regexclasses <- c(
+"[[:digit:]]", 	#Digits: 0 1 2 3 4 5 6 7 8 9
+"[[:lower:]]", 	#Lowercase characters: a-z
+"[[:upper:]]", 	#Uppercase characters: A-Z
+"[[:alpha:]]", 	#Alphabetic characters: a-z and A-Z
+"[[:alnum:]]", 	#Digits and alphabetic characters
+"[[:punct:]]", 	#Punctuation characters: . , ; etc.
+"[[:graph:]]", 	#Graphical characters: [:alnum:] and [:punct:]
+"[[:blank:]]", 	#Blank characters: Space and tab
+"[[:space:]]", 	#Space characters: Space, tab, newline, and other space characters
+"[[:print:]]"   #Printable characters: [:alnum:], [:punct:] and [:space:]
+)
+
+regexclasses
+```
+
+Let's try each regex class on the secret, and see if any of them gives insight:
+```{r, eval=T}
+resultlist = lapply(X=str_extract_all(string = secret, pattern=regexclasses), 
+                    FUN=str_c, collapse="")
+unlist(resultlist)
+```
+
+The third one shows promise -- it has some discernable words, but they are run together.
+
+```{r, eval=T}
+regexclasses[3]
+resultlist[[3]]
+```
+
+I see some punctuation in the sixth item:
+
+```{r, eval=T}
+regexclasses[6]
+resultlist[[6]]
+```
+
+Perhaps we should try combining both regexes (i.e., 3 and 6) ?
+
+```{r, eval=T}
+combinedregex=sub(pattern="\\]\\[", replacement="", x = paste0(regexclasses[3],regexclasses[6]))
+combinedregex
+```
+
+Here's the result from combining the UPPERCASE and the punctuation:
+```{r, eval=T}
+result9=str_c(unlist(str_extract_all(string = secret, pattern=combinedregex)), collapse="")
+result9
+```
+
+OK, time to clean up the punctuation.  Since the original secret string didn't contain any spaces, clearly it used a dot in place of a space.  So, let's switch them back:
+```{r, eval=T}
+result9a = str_replace_all(result9,"\\."," ")
+result9a
+```
+
+To make this grammatically correct, it needs a comma:
+```{r, eval=T}
+result9b = str_replace(result9a," ",", ")
+result9b
+```
+
+### The secret message is: "`r result9b`"
+
+#### (Please, tell me something I ***didn't*** already know?)
