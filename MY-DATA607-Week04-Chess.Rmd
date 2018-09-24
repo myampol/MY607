@@ -1,0 +1,284 @@
+---
+title: "MY-DATA607-Week04-Chess"
+author: "Michael Y."
+date: "September 23, 2018"
+output:
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    keep_md: yes
+    theme: cerulean
+  pdf_document: default
+---
+
+## Week 4 - Project 1
+
+### Parse a provided table of results from a Chess tournament, and perform the requested transformations
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(encoding = 'UTF-8')
+```
+
+##### Load libraries
+```{r load-libraries, eval=T}
+library(readr)
+library(stringr)
+library(R.utils)
+```
+
+##### Load the raw datafile
+```{r load-raw-datafile, eval=T}
+setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week04-Project 1")
+inputfile <- "tournamentinfo.txt"
+rawchess <- read_lines(inputfile)
+head(rawchess)
+```
+#### The datafile contains `r length(rawchess)` lines.    
+##### One of every three lines is a separator composed of hyphens, which we will ignore, while the subsequent pair of lines contains information about each participant and the opponents he/she faced in the tournament.
+#### The information about the 64 players is preceded by a pair of lines with header titles.   
+
+#### Here we will transform the above into an array of 65 lines (one for the header titles, followed by one for each of 64 players): 
+```{r reshape-raw-input, eval=T}
+TempOutputArray <- NULL
+TempOutputLine <- ""
+TempLineNum <- 0
+for (row in 1:length(rawchess)) {
+  if (row %% 3 == 1) {
+    ### this row is just hyphens, so we will ignore it
+    invisible(NULL)   #no-op
+  }
+  if (row %% 3 == 2) {
+    ### This is the first of two lines for the player
+    TempLineNum <- TempLineNum + 1
+    TempOutputLine <- rawchess[row]
+  }
+  if (row %% 3 == 0) {
+    ### This is the second of two lines for the player
+    TempOutputLine <- str_trim(paste(TempOutputLine, rawchess[row]))
+    TempOutputArray[TempLineNum] <-TempOutputLine
+  }
+}
+head(TempOutputArray)
+```
+
+#### Split at the pipe separators into elements, and trim the extra spaces preceding and following each element:
+```{r split-and-trim, eval=T}
+TrimmedOutputArray <- lapply(strsplit(x=TempOutputArray, split = "\\|"),str_trim)
+head(TrimmedOutputArray)
+```
+
+
+#### The column titles are not unique, and do not always make sense:  
+
+```{r bad-column-titles, eval=T}
+BadColNames <- TrimmedOutputArray[[1]]
+BadColNames
+```
+
+#### so we will replace them with better titles:  
+```{r improve-column-titles, eval=T}
+BetterColNames <- c("ID", 
+                    "PlayerName", 
+                    "TotalPts", 
+                    sprintf("Round%d",1:7), 
+                    "State", 
+                    "USCFID_RatePre_RatePost", 
+                    "Pts", 
+                    sprintf("Color%d",1:7))
+BetterColNames
+TrimmedOutputArray[[1]] = BetterColNames
+
+```
+
+#### Now convert the above array into a **matrix**, where the first line from the array becomes the column names, and the remaining 64 lines become the data:
+
+```{r make-array-into-matrix, eval=T}
+TotalRows <- length(TrimmedOutputArray)
+TotalElements <- length(unlist(TrimmedOutputArray))
+ColumnCount <- table(unlist(lapply(TrimmedOutputArray,length)))
+TrimmedOutputMatrix  <-  matrix(data = unlist(TrimmedOutputArray[2:TotalRows]), 
+                                nrow = length(TrimmedOutputArray)-1, 
+                                ncol=length(TrimmedOutputArray[[1]]), 
+                                byrow = T)
+colnames(TrimmedOutputMatrix) <- TrimmedOutputArray[[1]]
+head(TrimmedOutputMatrix)
+tail(TrimmedOutputMatrix)
+```
+
+#### There were `r TotalRows` total rows in the array, corresponding to `r TotalElements` total elements.   
+##### This is consistent with having `r names(ColumnCount)` columns on each row.   
+
+##### Ignore whatever number comes after a P, i.e., if a rating is nnnnPxx , use only the first part.
+
+```{r extract-player-ratings}
+df = data.frame(TrimmedOutputMatrix, stringsAsFactors = F)
+USCFID <- as.integer(str_extract(df$USCFID_RatePre_RatePost, "^\\d{8}"))
+df$USCFID <- USCFID
+tempPrerating1 <- str_replace(string = df$USCFID_RatePre_RatePost, "\\d{8} / R: *","")
+tempPrerating2 <- str_replace(tempPrerating1, "->.*$","")
+tempPrerating3 <- str_replace(tempPrerating2,"P.*$","")
+df$RatePre <- as.integer(tempPrerating3)
+cat('Pre-tournament ratings for each player:\n')
+df$RatePre
+
+# we're not actually using the Post-tournament ratings, but they might be useful to have...
+tempPostrating1=str_trim(str_replace(string = df$USCFID_RatePre_RatePost, "^.*->",""))
+tempPostrating2=str_replace(tempPostrating1, "P.*$","")
+df$RatePost <- as.integer(tempPostrating2)
+cat('Post-tournament ratings for each player:\n')
+df$RatePost
+```
+
+#### separate out the win/loss/draw/etc. for each player and tally up, in order to determine now many games each played:
+```{r separate-win-loss-draw, eval=T}
+### WLD is a 64x7 grid of the individual letters correspondig to each game played (or, not played) per player/round
+WLD = mapply(function(x) str_extract(string = x, pattern = "^."),subset(x = df, select = Round1:Round7))
+cat('Win-Loss-Draw for the various players: \n')
+tail(WLD)
+
+### collapseWLD collapses each row into a single string
+collapseWLD = apply(X=WLD,MARGIN = 1, function(rw) str_c(rw,collapse=''))
+cat('The above, collapsed into a string for each player: \n')
+tail(collapseWLD)
+```
+
+#### Determine how many games were W, L, or D (ignoring other items): 
+```{r table-WLD, eval=T}
+### compute a table for each row, where the table counts the occurance of each value (W, L, D, or other indicators)
+tempResults1 <- apply(X=WLD, MARGIN = 1, FUN=table)
+cat('table tallying results for each competitor (only the final 6 displayed here:) \n')
+tail(tempResults1)
+```
+
+
+#### tally the number which are "W", "L", or "D" -- (other values such as "U" or "B" indicate that no game was played):
+```{r tally-table-totals, eval=T}
+numgames <- lapply(X = tempResults1, 
+                   FUN = function(rw) ifelse(is.na(rw["W"]),0,rw["W"])
+                                     +ifelse(is.na(rw["L"]),0,rw["L"])
+                                     +ifelse(is.na(rw["D"]),0,rw["D"]))
+df$numgames <- as.integer(numgames)
+cat('Number of "W", "L", "D" games played by each player: \n')
+df$numgames
+```
+
+####Extract the list of opponents from the Round1:Round7 columns, so we can look up their ratings:     
+######(Note that there are "NA" values in cases where no game was played)
+```{r extract-opponents, eval=T}
+opponents=mapply(function(x) as.integer(str_trim(str_replace(string = x, pattern = "^.",""))),
+                 subset(x = df, select = Round1:Round7))
+colnames(opponents) <- sprintf("Opp%d",1:7)
+opponents
+
+```
+
+##### Append the 7 opponent columns to the dataframe: 
+
+```{r append-opponent-ID-columns-to-df, eval=T}
+### CAUTION -- this would duplicate columns if this chunk is re-evaluated manually, 
+### but this is not a problem when knitting the entire result
+df <- cbind(df,opponents)
+head(df)
+```
+
+
+#### Look up the ratings for each opponent:
+```{r lookup-opponent-ratings, eval=T}
+oppPreRatings=apply(opponents,
+                    MARGIN = c(1,2), 
+                    FUN=function(x)df[x,]$RatePre)
+### set the the column names
+colnames(oppPreRatings) <- sprintf("OppPreRate%d",1:7)
+cat('Opponent ratings, prior to the tournament: \n')
+```
+
+
+#### Append the 7 opponent rating columns to the dataframe:
+
+```{r append-opponent-rating-columns-to-df, eval=T}
+### CAUTION -- this would duplicate columns if this chunk is re-evaluated manually, 
+### but this is not a problem when knitting the entire result
+
+oppPreRatings
+df <- cbind(df,oppPreRatings)
+```
+
+##### Compute the average opponent rating, for each participant: 
+```{r average-opponent-ratings, eval=T}
+AvgOppRatePre <- rowSums(oppPreRatings,na.rm=T)/df$numgames
+cat('Average opponent rating, prior to the tournament: \n')
+AvgOppRatePre
+### Append the result to the dataframe
+df$AvgOppRatePre <- AvgOppRatePre
+```
+
+##### doublecheck to be sure that rowSums/numgames gives the same result as rowMeans: 
+
+```{r doublecheck-rowMeans}
+rowMeans(oppPreRatings,na.rm = T)
+### any differences?
+rowSums(oppPreRatings,na.rm=T)/df$numgames - rowMeans(oppPreRatings,na.rm = T)
+```
+
+##### The input data has the names entirely capitalized:   
+
+```{r all-caps-names, eval=T}
+cat('Initial name format supplied in input data: \n')
+head(df$PlayerName)
+```
+
+##### but the sample output shows just the first letter on each name component capitalized:
+```{r change-name-capitalization, eval=T}
+##library(R.utils) ## loaded at top
+
+# lowercase each name, and then separate each into an array of strings, so "capitalize"" will operate on each component
+CapitalList <- lapply(strsplit(x = tolower(df$PlayerName), 
+                              split = " "),
+                     capitalize)
+cat('Properly Capitalized name components (in list format): \n')
+head(CapitalList)
+```
+
+#### paste the resulting names back together again
+```{r paste-name-back-together, eval=T}
+
+CapitalNameArray=unlist(lapply( X = CapitalList, 
+                                FUN= function(name) paste(name, collapse=" ")))
+cat('Each name pasted back together again, in array format: \n')
+head(CapitalNameArray)
+
+# add Capitalized Name to the data frame
+df$CapitalizedName = CapitalNameArray
+```
+
+##### Select output columns for final result into smaller dataframe:
+```{r select-output-columns, eval=T}
+OutputColumns = c("CapitalizedName","State", "TotalPts", "RatePre", "AvgOppRatePre")
+OutputDF <- subset(x = df, select = OutputColumns)
+
+##### improve the column headers, to match the assignment
+OutputHeaders <- c("Player's Name", 
+                   "Player's State", 
+                   "Total Number of Points", 
+                   "Player's Pre-Rating",
+                   "Average Pre Chess Rating of Opponents")
+colnames(x = OutputDF) <- OutputHeaders
+head(OutputDF)
+```
+
+#### write the results into a .csv file: 
+
+```{r write-results-to-csv, eval=T}
+head(OutputDF)
+options(encoding = 'UTF-8')
+filename <- "MY-DATA607-Week04-ChessData.csv"
+write.csv(OutputDF, filename, row.names=FALSE)
+```
+
+#### re-read the results and display them:
+```{r reread-results, eval=T}
+re_read_output <- read_lines(filename)
+cat (re_read_output, sep = '\n')
+```
+
