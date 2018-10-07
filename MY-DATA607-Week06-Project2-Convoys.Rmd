@@ -1,0 +1,485 @@
+---
+title: "MY-DATA607-Week06-Project2-Convoys"
+author: "Michael Y."
+date: "October 7, 2018"
+output:
+  html_document:
+    css: lab.css
+    highlight: pygments
+    keep_md: yes
+    theme: cerulean
+  pdf_document: default
+---
+
+## Week 6 - Project 2 - Dataset 1: Military Convoys in WWII
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+directory = "c:/users/Michael/DROPBOX/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week06-Project 2"
+knitr::opts_knit$set(root.dir = directory)
+##setwd(directory)
+```
+
+```{r setwd,eval=T}
+##setwd("c:/users/Michael/DROPBOX/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week06-Project 2")
+```
+
+### The assignment is as follows:
+
+#### Choose any three of the “wide” datasets identified in the Week 6 [sic] Discussion items.     
+
+#### For each of the three chosen datasets:    
+
+#### (1) Create a .CSV file (or optionally, a MySQL database!) that includes all of the information above. You’re encouraged to use a “wide” structure similar to how the information appears above, so that you can practice tidying and transformations as described below.
+
+Note:  For reasons explained below, I am loading multiple (eight) tables from the web.  It is easier to do this by putting each table into an individual Excel sheet, where all the sheets are joined together in an Excel Workbook, rather than in 8 separate .csv files .
+
+#### (2) Read the information from your .CSV file into R, and use `tidyr` and `dplyr` as needed to tidy and transform your data.
+
+#### (3) Perform analysis
+
+#### (4) Your code should be in an R Markdown file, posted to rpubs.com, and should include narrative descriptions of your data cleanup work, analysis, and conclusions.
+
+```{r loadlibs, eval=T}
+library(readr)
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(utils)
+library(scales)
+```
+
+## Data Loading
+
+#### Load the raw datafile :
+
+The data comes from the following webpage, as suggested by Romerl:   
+https://en.wikipedia.org/wiki/List_of_Allied_convoys_during_World_War_II_by_region
+
+This webpage contains eight tables, each corresponding to a different part of the globe.  
+
+Because we have not yet covered web scraping, I don't know how to read and parse the 8 tables directly from the Wikipedia page.  So, instead I used functionality available within Excel to extract each of the 8 tables into a separate sheet within an Excel workbook.   I have loaded this excel workbook into my github, from which it can be extracted as below.
+
+I then loaded these 8 tables into R using library `XLConnect`, where they form a list of 8 dataframes.  
+
+I then proceed to perform the data cleanup, merging, etc., from this point.
+
+While it would have been possible to write each of the eight tables back into an individual .csv file and then read each back in to R, that would create excess messiness.  As given, the tables can't be put into an individual .csv because the headers are not identical (specifically, the second column, which details the convoy routes, is region-specific.)
+
+#### Military convoy tables (suggested by Romerl)
+```{r, eval=T}
+#setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week06-Project 2/Convoys")
+
+
+### The excel workbook "EightConvoys.xlsx" contains 8 sheets, each of which is a table from the URL listing military convoys
+### https://en.wikipedia.org/wiki/List_of_Allied_convoys_during_World_War_II_by_region
+```
+
+There are 8 tables in the Wikipedia page, which are named as follows:
+```{r, eval=T}
+ConvoyTableNames <- c(
+  '01-European Coastal Atlantic Convoys',
+  '02-North Atlantic Convoys',
+  '03-North American Coastal and Caribbean Convoys',
+  '04-Mediterranean and North African Coastal Convoys',
+  '05-South Atlantic Convoys',
+  '06-Indian Ocean Convoys',
+  '07-Pacific Convoys',
+  '08-Normandy Invasion Convoys'
+)
+```
+
+
+#### Use the library "XLConnect" to load up the Excel workbook into R, creating a separate dataframe for each of the 8 tables
+
+```{r, eval=T}
+### The package "XLConnect" easily loads up an Excel Workbook with multiple sheets, putting each sheet into a dataframe, and returning a list contains all such dfs
+
+### If the package "XLConnect" is not already installed on this computer, then install it
+if (is.na(installed.packages()[,"Package"]["XLConnect"])) {
+  install.packages("XLConnect")
+}
+
+### load the library XLConnect
+require(XLConnect) 
+
+```
+
+#### Read the excel workbook into R using **loadWorkbook** from `XLConnect` .    
+#### Note that the Excel sheets are initially named Sheet1, Sheet2, ... Sheet8 .    
+```{r, eval=T}
+### if loading the file from my local machine:
+### wb <- loadWorkbook("Convoys/EightConvoys.xlsx") 
+
+### If retrieving the files from my Github:
+
+sourcefile = "https://raw.githubusercontent.com/myampol/MY607/master/EightConvoys.xlsx"
+destfile = "c:/temp/EightConvoys.xlsx"
+download.file(sourcefile,destfile,mode="wb")
+
+### load the entire  Excel workbook into R
+wb <- loadWorkbook(destfile)
+
+```
+
+#### Use **readWorksheet** from `XLConnect` to create a list which captures each of the 8 sheets into an individual dataframe  (again, the sheets are still named Sheet1, Sheet2,...,Sheet8)
+
+```{r, eval=T}
+lst = readWorksheet(wb, sheet = getSheets(wb))
+```
+
+### Have a look at the structure of the list
+
+```{r, eval=T}
+str(lst)
+```
+
+
+## Tidy and transform the data
+
+#### The header of the second column (*.Routes , except for the final table) in each table differs; each should correspond to the the name of the respective Convoy for that part of the world.
+
+#### Check the listing to ensure that we haven't gotten the above ConvoyTableNames out-of-sequence:
+```{r, eval=T}
+for (i in 1:8) print(paste(ConvoyTableNames[i], "|", names(lst[[i]][2])))
+```
+
+#### The correspondence between the above pairs of names indicate that we are indeed loading up the sheets (Sheet1, Sheet2, etc.) in the correct sequence.    
+
+####  Rename the 8 dataframes to reflect which Convoy each dataframe represents:
+```{r,eval=T}
+names(lst) <- ConvoyTableNames
+```
+
+#### Have a look at the head of each table:
+```{r, eval=T}
+for (i in names(lst)) {
+  print(i)
+  print(head(lst[[i]]))
+  #####print(knitr::kable(head(lst[[i]]),format="markdown"))
+  print("_____________________________________________________________________")
+}
+```
+
+#### We need to perform various operations on the tables before we can concatentate them together.   
+#### When `XLConnect` read in each table, it made nearly everything type **character**, with the exception of the column "**Number.of.Convoys**".
+
+#### For some tables, everything in this column was blank, so it was assigned type **logical**.   
+
+#### For some other tables, there were numerical values for a few entries, so the column was assigned type **numeric**.
+
+#### And, one table (#02) includes entries containing parentheses, hashmarks, and hyphens, so it was loaded as type **character**:    
+
+```{r}
+for (i in names(lst)) {
+  cat(i,"\n")
+  cat(str(lst[[i]]$Number.of.Convoys))
+  cat(class(lst[[i]]$Number.of.Convoys),"\n")
+  cat("____________________________________________________________________\n")
+
+}
+```
+
+#### (1) Before we can concatenate all 8 tables together, we have to cast the above column to same data type (**character**) because we may get an error if we attempt to combine the tables without having done so because relying on R to perform the casting will only work if we start with the table containing character data and append the other tables to it -- automatic casting of numeric or logical to character will succeed, but the process will fail if trying to cast character to numeric given the specific data.    
+
+#### (2) We want to add a column which identifies which of the 8 **regions** each row corresponds to, which we will do using **add_column** from `tibble`.
+
+#### (3) Additionally, in order to combine all the various "*.Routes" columns (and, in the final table, the equivalent column named "Normandy.Invasion.Convoy") into a single column, we need to make every table have the same header or else we will have lots of separate columns for each type of routes, which is not what we want.   
+
+#### Once the above changes are made, we can use **bind_rows** from `dplyr` to append the dataframes together.  Here we do this by creating an empty dataframe called AllConvoys and then appending each table as we loop through:
+
+```{r, eval=T}
+AllConvoys=NULL
+
+for (df_name in names(lst)) {
+  
+  ### When each sheet was initially read in, the type assigned to Number.of.Convoys varied.
+  ### We cannot append all the tables together if the type of this column is not uniform
+  ### therefore, forcibly cast all such items to CHARACTER
+  
+  lst[[df_name]]$Number.of.Convoys <- as.character(lst[[df_name]]$Number.of.Convoys)
+  
+  
+  ### expand each dataframe by inserting a "Region" column which contains the region name 
+  lst[[df_name]] <-   add_column(lst[[df_name]],Region=df_name,.before=1)
+  
+  ### Because we put the region name at the beginning (i.e., leftmost-column), 
+  ### the column containing the various Routes has shifted from column 2 to column 3.
+  ### In order to aggregate all such columns together across the eight dataframes, 
+  ### rename them all "Routes", as the new "Region" column contains the necessary information to identify the area
+  
+  names(lst[[df_name]])[3] <- "Routes"
+
+### concatentate all eight tables together using bind_rows
+### here we're doing it one-at-a-time by appending each table onto the previous ones  
+### note that this would fail without the type adjustment above on Number.of.Convoys  
+  
+AllConvoys <- bind_rows(AllConvoys,lst[[df_name]])
+
+###cat("\nEnd of processing ",df_name)
+}
+
+```
+
+#### We now have a table which contains 431 rows.  Here are views of selections from the table:  
+```{r, eval=T}
+dim(AllConvoys)
+head(AllConvoys)
+tail(AllConvoys)
+
+### Note that the below two subsetting/filtering methods select the same rows, but differ on the index numbering:
+AllConvoys[seq(1,431,25),]
+filter(AllConvoys,row_number() %% 25==1)
+```
+
+
+
+#### Most of the Routes are of the form "Origin" to "Destination".
+#### Extract the Origin and Destination into individual columns, but retain the original route so we can examine those for which such separation fails
+```{r, eval=T}
+AllConvoys <- extract(AllConvoys, 
+                      Routes, 
+                      into = c('Origin', 'Destination'), 
+                      '(.*)\\sto\\s(.*)', 
+                      remove=FALSE)
+
+head(AllConvoys)
+tail(AllConvoys)
+```
+
+
+
+#### Let's examine those items which didn't have " to " in the Route
+```{r}
+Failed_To_Extract <- filter(.data = AllConvoys, is.na(Origin))
+Failed_To_Extract
+```
+
+
+#### There are 21 such rows where the Route is not of the form (Origin) to (Destination).
+
+#### There is a column "Number.of.Convoys" which lists the number of times a particular route was used. Unfortunately it is not populated for most rows.  There are a few rows where the entry includes a **count** as well as additional information (apparently a range of sequence numbers, e.g.,  "97 (# 41-137)").  
+
+```{r}
+AllConvoys %>% filter(str_detect(string = Number.of.Convoys,    pattern = "\\("))
+```
+
+####We need to remove this extraneous detail from these items in order to be able to make any use of the counts. Additionally, we need to cast the values from character back to numeric.
+```{r fix-Numer.of.Convoys, eval=T}
+AllConvoys <- AllConvoys %>% 
+  mutate(Number.of.Convoys,
+         Number.of.Convoys=as.numeric(
+           gsub(pattern = " .*$",replacement = "",x=Number.of.Convoys)))
+```
+
+
+
+## Analysis
+
+#### Plot the number of convoy routes per region:
+
+```{r plot-convoys_routes-by-region, eval=T}
+
+AllConvoys %>% 
+  select(Region) %>% 
+  mutate(RegionNum=substr(Region,1,2)) %>%
+  ggplot(aes(x=factor(RegionNum), y=table(RegionNum)[RegionNum], fill=Region)) + 
+  geom_bar(stat="identity", position="dodge")+
+  theme_minimal()+
+  geom_text(aes(label=as.integer(table(RegionNum)[RegionNum])), 
+            vjust=1.6, color="black", 
+            position = position_dodge(0.8), size=4) +
+  scale_x_discrete( expand = waiver(), position = "bottom")+
+  scale_y_continuous(name = waiver(), breaks = waiver(),
+                     minor_breaks = waiver(), labels = waiver(), limits = NULL,
+                     expand = waiver(), oob = censor, na.value = NA_real_,
+                     trans = "identity", position = "left", sec.axis = waiver()) +
+    labs(x="",y="Number of Convoy Routes")+
+  ggtitle("World War II: Number of Allied Convoy Routes, by region")
+```
+
+
+#### Although there is field "Number.of.Convoys" which apparently counts the number of times a particular route was used, it is not populated for most rows.  In particular, it is only populated for 33 rows out of 431.
+```{r}
+CountOfConvoysDefined <- AllConvoys %>% filter(!is.na(Number.of.Convoys)) %>% count(x = .)
+
+Total.Number.of.Convoys <- sum(AllConvoys$Number.of.Convoys,na.rm=T)
+
+```
+
+
+#### Once the data is cleaned, the number of rows for which the Number.of.Convoys is not NA is `r CountOfConvoysDefined` .   
+#### The totalsum of the number of convoys on such rows is `r Total.Number.of.Convoys`  .
+
+#### These are such rows:
+```{r}
+AllConvoys %>% filter(!is.na(Number.of.Convoys))
+```
+
+#### This sums up the Number.of.Convoys by region, where such number is not NA:
+```{r}
+TotalConvoysByRegion <- AllConvoys %>%      
+  group_by(Region) %>%
+  summarise(total_convoys = sum(Number.of.Convoys, na.rm = T)) %>% 
+  ungroup()
+TotalConvoysByRegion  
+```
+
+```{r plot-convoys-by-region}
+
+TotalConvoysByRegion %>% 
+  mutate(RegionNum=substr(Region,1,2)) %>%
+  ggplot(aes(x=factor(RegionNum), y=total_convoys, fill=Region)) + 
+  geom_bar(stat="identity", position="dodge")+
+  theme_minimal()+
+  geom_text(aes(label=total_convoys), 
+            vjust=-0.2, color="black", 
+            position = position_dodge(0.8), size=4) +
+  scale_x_discrete( expand = waiver(), position = "bottom")+
+  scale_y_continuous(name = waiver(), breaks = waiver(),
+                     minor_breaks = waiver(), labels = waiver(), limits = NULL,
+                     expand = waiver(), oob = censor, na.value = NA_real_,
+                     trans = "identity", position = "left", sec.axis = waiver()) +
+  labs(x="",y="Total Number of Convoys (where known)")+
+  ggtitle("World War II: Total Number of Allied Convoys (where known), by region")
+```
+
+#### Convoy routes by Origin (top 10)
+```{r convoy-routes-by-origin, eval=T}
+ConvoysByOrigin <- AllConvoys %>%      
+  group_by(Origin) %>%
+  summarise(ConvoyRoutesByOrigin = n()) %>% 
+  arrange(.data = ., desc(ConvoyRoutesByOrigin)) %>%
+  ungroup()
+top_n(x = ConvoysByOrigin, wt=ConvoyRoutesByOrigin, n = 10)  
+```
+
+#### The above reflects the fact that there are 21 routes for which it was not possible to extract origin/destination details.
+
+
+## Convoy routes by Destination (top 10)
+```{r convoy-routes-by-destination, eval=T}
+ConvoysByDestination <- AllConvoys %>% 
+  filter(!is.na(Destination)) %>%
+  group_by(Destination) %>%
+  summarise(ConvoyRoutesByDestination = n()) %>% 
+  arrange(.data = ., desc(ConvoyRoutesByDestination)) %>%
+  ungroup()
+top_n(x = ConvoysByDestination, wt=ConvoyRoutesByDestination, n = 10)  
+```
+
+#### This example would have also shown the 21 rows for which Destination is "NA", except I have filtered them out.
+
+#### From above we can observe that there are a large number of Convoy routes for which the "Origin" or "Destination" is simply "France", without further designation of a specific city/port.  As it turns out, all such items are associated with the Normandy Invasion:
+
+```{r}
+AllConvoys %>%
+  filter(Origin=="France"|Destination=="France")
+```
+
+```{r convoy-routes-by-origin-ex-invasion, eval=T}
+ConvoysByOriginExInvasion <- AllConvoys %>% filter(.data = ., Region != ConvoyTableNames[8]  &  !is.na(Origin)) %>%     
+  group_by(Origin) %>%
+  summarise(ConvoyRoutesByOrigin = n()) %>% 
+  arrange(.data = ., desc(ConvoyRoutesByOrigin)) %>%
+  ungroup()
+top_n(x = ConvoysByOriginExInvasion, wt=ConvoyRoutesByOrigin, n = 10)  
+```
+
+
+
+```{r convoy-routes-by-destination-ex-invasion, eval=T}
+ConvoysByDestinationExInvasion <- AllConvoys %>% filter(.data = ., Region != ConvoyTableNames[8]  &  !is.na(Destination)) %>%     
+  group_by(Destination) %>%
+  summarise(ConvoyRoutesByDestination = n()) %>% 
+  arrange(.data = ., desc(ConvoyRoutesByDestination)) %>%
+  ungroup()
+top_n(x = ConvoysByDestinationExInvasion, wt=ConvoyRoutesByDestination, n = 10)  
+```
+
+#### We see that a sizable number of convoys are to or from Liverpool, a major U.K. port:
+```{r}
+AllConvoys %>%
+  filter(Origin=="Liverpool"|Destination=="Liverpool")
+```
+
+#### And, for those routes on which we have frequency information, we see that Liverpool is well-represented at the top of the list:
+```{r frequently-used-convoy-routes, eval=T}
+FrequentlyUsedConvoyRoutes <- AllConvoys %>% filter(.data = .,  !is.na(Number.of.Convoys)) %>%     
+  #group_by(Origin) %>%
+  #summarise(ConvoyRoutesByOrigin = n()) %>% 
+  arrange(.data = ., desc(Number.of.Convoys)) %>%
+  ungroup()
+top_n(x = FrequentlyUsedConvoyRoutes, wt=Number.of.Convoys,  n = 10)
+```
+
+#### Aggregating, Liverpool is by far the most frequent origin:
+```{r frequently-used-convoy-origins, eval=T}
+FrequentlyUsedOrigins <- AllConvoys %>% filter(.data = .,  !is.na(Number.of.Convoys)) %>%     
+  group_by(Origin) %>%
+  summarise(total_convoys = sum(Number.of.Convoys, na.rm = T)) %>%
+  arrange(.data = ., desc(total_convoys)) %>%
+  ungroup()
+top_n(x = FrequentlyUsedOrigins, wt=total_convoys,  n = 10)
+```
+
+#### Here's a plot of the top 10 Origins:
+```{r plot-convoys-by-origin, eval=T}
+
+FrequentlyUsedOrigins %>% 
+  top_n(x = ., wt=total_convoys,  n = 10) %>%
+  ggplot(aes(x=Origin, y=total_convoys, fill=Origin)) + 
+  geom_bar(stat="identity", position="dodge")+
+  theme_minimal()+
+  theme(axis.text.x=element_blank())+
+  geom_text(aes(label=total_convoys), 
+            vjust=-0.2, color="black", 
+            position = position_dodge(0.8), size=4) +
+  scale_x_discrete( expand = waiver(), position = "bottom")+
+  scale_y_continuous(name = waiver(), breaks = waiver(),
+                     minor_breaks = waiver(), labels = waiver(), limits = NULL,
+                     expand = waiver(), oob = censor, na.value = NA_real_,
+                     trans = "identity", position = "left", sec.axis = waiver()) +
+  labs(x="",y="Total Number of Convoys (where known)")+
+  ggtitle("World War II: Total Number of Allied Convoys (where known), by Origin")
+```
+
+#### Similarly, Liverpool is also the most frequent destination:
+```{r frequently-used-convoy-Destinations, eval=T}
+FrequentlyUsedDestinations <- AllConvoys %>% filter(.data = .,  !is.na(Number.of.Convoys)) %>%     
+  group_by(Destination) %>%
+  summarise(total_convoys = sum(Number.of.Convoys, na.rm = T)) %>%
+  arrange(.data = ., desc(total_convoys)) %>%
+  ungroup()
+top_n(x = FrequentlyUsedDestinations, wt=total_convoys,  n = 10)
+```
+
+#### Here's a plot of the top 10 Destinations:
+```{r plot-convoys-by-Destination, eval=T}
+
+FrequentlyUsedDestinations %>% 
+  top_n(x = ., wt=total_convoys,  n = 10) %>%
+  ggplot(aes(x=Destination, y=total_convoys, fill=Destination)) + 
+  geom_bar(stat="identity", position="dodge")+
+  theme_minimal()+
+  theme(axis.text.x=element_blank())+
+  geom_text(aes(label=total_convoys), 
+            vjust=-0.2, color="black", 
+            position = position_dodge(0.8), size=4) +
+  scale_x_discrete( expand = waiver(), position = "bottom")+
+  scale_y_continuous(name = waiver(), breaks = waiver(),
+                     minor_breaks = waiver(), labels = waiver(), limits = NULL,
+                     expand = waiver(), oob = censor, na.value = NA_real_,
+                     trans = "identity", position = "left", sec.axis = waiver()) +
+  labs(x="",y="Total Number of Convoys (where known)")+
+  ggtitle("World War II: Total Number of Allied Convoys (where known), by Destination")
+```
+
+## Conclusion   
+
+#### This data set provides an interesting look at military convoys during WWII.   
+#### Because data is not given for the counts associated with most of the convoy routes, it is not possible to obtain useful information, as the graph above is an extremely crude estimate based upon the available data.   
+#### For those routes for which we do have such counts, Liverpool is by far the most frequently represented origin and destination, with Halifax a distant second.
+
+
