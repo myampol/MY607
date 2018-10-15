@@ -1,0 +1,171 @@
+---
+title: "MY-DATA607-Week07-Books-XML-JSON"
+author: "Michael Y."
+date: "October 14, 2018"
+output:
+  pdf_document: default
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    keep_md: yes
+    theme: cerulean
+always_allow_html: yes
+---
+
+## Week 7 - Books - Working with XML and JSON in R
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Load libraries
+```{r load-libraries, results = "hide", message=FALSE, warning=FALSE}
+library(XML)
+library(rlist)
+library(knitr)
+library(kableExtra)
+library(jsonlite)
+library(RCurl)
+library(tidyr)
+library(dplyr)
+```
+
+####Pick three of your favorite books on one of your favorite subjects. At least one of the books should have more than one author. For each book, include the title, authors, and two or three other attributes that you find interesting.
+
+####Take the information that you’ve selected about these three books, and separately create three files which store the book’s information in HTML (using an html table), XML, and JSON formats (e.g. “books.html”, “books.xml”, and “books.json”). To help you better understand the different file structures, I’d prefer that you create each of these files “by hand” unless you’re already very comfortable with the file formats.
+
+####Write R code, using your packages of choice, to load the information from each of the three sources into separate R data frames.
+
+####Your deliverable is the three source files and the R code. If you can, package your assignment solution up into an .Rmd file and publish to rpubs.com. [This will also require finding a way to make your three text files accessible from the web].
+
+## Part 1 - HTML
+
+#### Load the data file in html format
+```{r load-html-file, eval=T}
+### if loading from local file
+### my_books_html_file <- 'Examples/ThreeBooks.html'
+### my_books_html_list <- readHTMLTable(my_books_html_file, stringsAsFactors=F)
+
+### if loading from github
+my_books_html_file <- 'https://raw.githubusercontent.com/myampol/MY607/master/ThreeBooks.html'
+my_books_html_doc <- getURL(my_books_html_file)
+
+cat(my_books_html_doc)
+```
+
+#### Read the HTML table
+```{r parse_html, eval=T}
+### the data is read in as a list containing a single element (i.e., the dataframe)
+my_books_html_list <- readHTMLTable(my_books_html_doc, stringsAsFactors=F)
+str(my_books_html_list)
+```
+
+
+### extract the dataframe from the list
+```{r extract-dataframe-from-list, eval=T}
+my_books_html_df <- my_books_html_list[[1]]
+my_books_html_df
+```
+
+####Improve the display, using kable
+```{r kable, eval=T}
+
+my_books_html_df %>% 
+  kable() %>% 
+  kable_styling() %>%     
+  scroll_box(width="800px",height="350px")
+
+```
+
+#### Separate out the multiple authors into individual columns
+```{r separate-authors}
+my_books_html_df <- separate(data = my_books_html_df,
+                             col = Author, 
+                             into =c("Author1","Author2"), 
+                             fill="right", 
+                             sep = " & ", 
+                             remove = T)
+
+my_books_html_df %>% 
+  kable() %>% 
+  kable_styling() %>%     
+  scroll_box(width="800px",height="350px")
+
+
+
+```
+
+## Part 2 - XML
+
+#### Select the file to load
+```{r load-XML-file, eval=T}
+### if loading from local file
+#my_books_xml_file <- 'Examples/ThreeBooks.xml'
+#my_books_xml <- xmlParse(my_books_xml_file)
+#my_books_xml
+```
+
+#### If loading from github
+```{r load-XML-from-github, eval=T}
+### if loading from github
+my_books_xml <- getURL('https://raw.githubusercontent.com/myampol/MY607/master/ThreeBooks.xml')
+cat(my_books_xml)
+```
+
+
+### Convert to Data Frame
+```{r convert-XML-to-dataframe, eval=T}
+
+my_books_xml_df <- xmlToDataFrame(my_books_xml, stringsAsFactors = F)
+
+my_books_xml_df %>% 
+  kable() %>% 
+  kable_styling() %>%     
+  scroll_box(width="800px",height="350px")
+```
+
+#### Are the above two data frames (from HTML and from XML) identical?
+```{r are-HTML-and-XML-data-frames-identical,eval=T}
+identical(my_books_html_df, my_books_xml_df )
+```
+
+## Part 3 - JSON
+
+#### Select the file containing the books in JSON
+```{r load-JSON-file, eval=T}
+### if loading from local file
+###my_books_json_file <- 'Examples/ThreeBooks.json'
+
+### if loading from github
+my_books_json_file <- 'https://raw.githubusercontent.com/myampol/MY607/master/ThreeBooks.json'
+my_books_json_doc <- getURL(my_books_json_file)
+cat(my_books_json_doc)
+```
+
+
+
+#### load the JSON file using jsonlite
+```{r load-JSON, eval=T}
+### This automatically loads it into a data frame, unless simplifyDataFrame=FALSE has been specified
+
+my_books_json_df <- fromJSON(txt = my_books_json_file )
+my_books_json_df %>% 
+  kable() %>% 
+  kable_styling() %>%     
+  scroll_box(width="800px",height="350px")
+```
+
+#### Are the three data frames identical?
+```{r compare-data-frames}
+## HTML data frame vs. JSON data frame
+identical(my_books_html_df, my_books_json_df)
+
+## XML data frame vs. JSON data frame
+identical(my_books_xml_df, my_books_json_df)
+
+```
+
+## Conclusion:  All three data frames are identical.
+
+
+
