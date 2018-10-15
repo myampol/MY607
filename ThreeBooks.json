@@ -1,0 +1,29 @@
+[
+    {
+        "Author1": "Provost, Foster",
+        "Author2": "Fawcett, Tom",
+        "Title": "Data Science for Business",
+        "Year": "2013",
+        "Publisher": "O'Reilly",
+        "ISBN": "978-1-449-36132-7",
+        "URL": "http://data-science-for-biz.com/"
+    },
+    {
+        "Author1": "Wickham, Hadley",
+        "Title": "ggplot2: Elegant Graphics for Data Analysis",
+        "Year": "2009",
+        "Publisher": "Springer",
+        "ISBN": "978-0-387-98140-6",
+        "URL": "http://ggplot2.org/book/"
+    },
+    {
+        "Author1": "Wickham, Hadley",
+        "Author2": "Grolemund, Garrett",
+        "Title": "R for Data Science: Import, Tidy, Transform, Visualize, and Model Data",
+        "Year": "2017",
+        "Publisher": "O'Reilly",
+        "ISBN": "978-1-491-91039-9",
+        "URL": "http://r4ds.had.co.nz/"
+    }
+]
+ 

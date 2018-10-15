@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MY_Booklist>
+	<Book id='ProvostFawcett13'>
+		<Author1>Provost, Foster</Author1>
+		<Author2>Fawcett, Tom</Author2>
+		<Title>Data Science for Business</Title>
+		<Year>2013</Year>
+		<Publisher>O'Reilly</Publisher>
+		<ISBN>978-1-449-36132-7</ISBN>
+		<URL>http://data-science-for-biz.com/</URL>
+	</Book>
+	<Book id='Wickham2009Ggplot2'>
+		<Author1>Wickham, Hadley</Author1>
+		<Title>ggplot2: Elegant Graphics for Data Analysis</Title>
+		<Year>2009</Year>
+		<Publisher>Springer</Publisher>
+		<ISBN>978-0-387-98140-6</ISBN>
+		<URL>http://ggplot2.org/book/</URL>
+	</Book>
+	<Book id='Wickham2017R'>
+		<Author1>Wickham, Hadley</Author1>
+		<Author2>Grolemund, Garrett</Author2>
+		<Title>R for Data Science: Import, Tidy, Transform, Visualize, and Model Data</Title>
+		<Year>2017</Year>
+		<Publisher>O'Reilly</Publisher>
+		<ISBN>978-1-491-91039-9</ISBN>
+		<URL>http://r4ds.had.co.nz/</URL>
+	</Book>
+</MY_Booklist>
