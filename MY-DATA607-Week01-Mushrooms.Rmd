@@ -1,79 +1,105 @@
 ---
 title: "DATA607-Week1-Mushrooms"
 author: "Michael Y."
-date: "September 2, 2018"
+date: "September 1, 2019"
 output:
-  pdf_document: default
-  html_document: default
+  html_document:
+    highlight: pygments
+    theme: cerulean
+    code_folding: show
+    toc: no
+    toc_float: no
+    toc_depth: 3
+  pdf_document:
+    toc: no
+classoption: landscape
+editor_options:
+  chunk_output_type: inline
 ---
+<style>
+  .main-container {
+    max-width: 1200px !important;
+  }
+</style>
 
+# Assignment 1 - Loading Data into a Data Frame - Mushroom Dataset
 
-```{r setup, include=FALSE}
+```{r setup, eval=T}
 knitr::opts_chunk$set(echo = TRUE)
+directory = "C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201909-Fall/DATA607_Tati_Andy/20190901_Week01/"
+knitr::opts_knit$set(root.dir = directory)
+
+### Make the output wide enough
+options(scipen = 999, digits=6, width=120)
+
+### Load some libraries
+library(tidyr)
+library(dplyr)
+library(kableExtra)
+
 ```
 
-## R Markdown
-## Assignment 1 - Loading Data into a Data Frame - Mushroom Dataset
 
-###Mushrooms Dataset
+## Mushrooms Dataset
 A famous-if slightly moldy-dataset about mushrooms can be found in the UCI repository here: 
 https://archive.ics.uci.edu/ml/datasets/Mushroom
 The fact that this is such a well-known dataset in the data science community makes it a good dataset to use for comparative benchmarking.  For example, if someone was working to build a better decision tree algorithm 
 (or other predictive classifier) to analyze categorical data, this dataset could be useful.  A typical problem (which is beyond the scope of this assignment!) is to answer the question, 
 
-###"Which other attribute or attributes are the best predictors of whether a particular mushroom is poisonous or edible?"
+### "Which other attribute or attributes are the best predictors of whether a particular mushroom is poisonous or edible?"
 
 Your task is to study the dataset and the associated description of the data (i.e. "data dictionary"). You may need to look around a bit, but it's there! 
 You should take the data, 
 
 
-```{r obtain-the-data-from-UCI}
-setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week01/Week01-AssignmentLab-MushroomDatabase")
+```{r obtain-the-data-from-UCI, eval=T}
+### Avoid setwd when knitting -- instead use above knitr::opts_knit$set(root.dir = directory)
+#setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201909-Fall/DATA607_Tati_Andy/20190901_Week01/")
 download.file('https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data', 'mushroom-database.csv')
 ```
 ### Create a data frame with a subset of the columns in the dataset. 
 (First, I'll create a dataframe with all 23 columns:)
-```{r}
+```{r make_dataframe, eval=T}
 mushroom_df <- read.csv('mushroom-database.csv', header=FALSE, stringsAsFactors=TRUE)
 ```
 According to the documentation, the size of the data frame should be 8124x3. 
 Checking:
-```{r check-df-dimension}
+```{r check-df-dimension, eval=T}
 dim(mushroom_df)
 
 ```
 
 ### Determine which lines represent  poisonous mushrooms by converting to a 0/1 variable, usable in logistic regression 
-```{r}
+```{r poisonous, eval=T}
 poisonous <- mushroom_df$V1=="p"
 poisonous=as.integer(poisonous)
 head(mushroom_df$V1)
 head(poisonous)
 ```
 
-###get metadata -- info about the data
+### Get metadata -- info about the data
 
-```{r get-metadata}
+```{r get-metadata, eval=T}
 download.file('https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.names', 'mushroom-info.txt')
 # read the lines into R
 mushroom_meta=readLines(con="mushroom-info.txt")
 ```
 
-### we only care about metalines 106-140
+### We only care about metalines 106-140
 
-```{r trim-metadata}
+```{r trim-metadata, eval=T}
 mushroom_meta2 = mushroom_meta[106:140]   
 # trim the whitespace on the overflow lines
 mushroom_meta2 = trimws(mushroom_meta2)
-mushroom_meta2
+kable(mushroom_meta2, caption="Mushroom Metadata text") %>%
+  kable_styling(c("striped", "bordered"))
 ```
 
-### attributes with many values are split onto two lines
+### Attributes with many values are split onto two lines
 Lines starting an attribute start with a number, while rollover lines start with a letter.
 Let's create a function which will join the rollover lines onto the starting lines:
-(There is probably a cleaner way to do this, but this is what I can do for now)
 
-```{r pastearray-function}
+```{r pastearray-function, eval=T}
 
 pastearray = function(chararray) {
 # take an array of character strings
@@ -126,7 +152,7 @@ pastearray = function(chararray) {
 
 Apply this function to the above mushroom_meta 
 
-```{r run-pastearray}
+```{r run-pastearray, eval=T}
 mushroom_meta2 = pastearray(mushroom_meta2)
 mushroom_meta2
 ```
@@ -135,7 +161,7 @@ Success, now there are only 23 rows, each representing one column.
 
 Modify the first line to resemble the other lines. 
 Since ascertaining whether poisonous vs. edible is the TARGET, I'll relabel this line as such.
-```{r Replace-first-line}
+```{r replace-first-line, eval=T}
 ############
 ############
 firstline = mushroom_meta2[1]
@@ -154,24 +180,25 @@ mushroom_meta2
 ```
 
 Extract the list of attribute names from the above
-```{r}
+```{r get_attribute_names, eval=T}
 names1=gsub(pattern=":.*$", replacement = "", x=mushroom_meta2)
 #names1
 names2=gsub(pattern="^[0-9]*. ", replacement = "", x=names1, perl=FALSE)
 #names2
 # replace hyphens with underscores or it will cause problems later
 names3=gsub(pattern="-", replacement="_", x=names2)
-names3
+kable(names3, caption="Mushroom Attribute Names") %>%
+  kable_styling(c("striped", "bordered"))
 ```
 
 extract the list of factors (their descriptive names, and their single character abbreviations) from each line
-```{r}
+```{r get_factors, eval=T}
 factors1 = gsub(pattern="^.*:  *",replacement="",x=mushroom_meta2)
 factors1
 ```
-### rename the factors with the descriptive names
-(I had to do set this up externally because I couldn't get the proper processing of the quotation marks in R)
-```{r rename-the-factors}
+### Rename the factors with the descriptive names
+(I had to set this up manually because I couldn't get the proper processing of the quotation marks in R)
+```{r rename-the-factors, eval=T}
 
 levels(mushroom_df$V1)
 levels(mushroom_df$V1) <-  list(edible="e",poisonous="p")
@@ -202,82 +229,103 @@ levels(mushroom_df$V20) <-  list(cobwebby="c",evanescent="e",flaring="f",large="
 levels(mushroom_df$V21) <-  list(black="k",brown="n",buff="b",chocolate="h",green="r",orange="o",purple="u",white="w",yellow="y")
 levels(mushroom_df$V22) <-  list(abundant="a",clustered="c",numerous="n",scattered="s",several="v",solitary="y")
 levels(mushroom_df$V23) <-  list(grasses="g",leaves="l",meadows="m",paths="p",urban="u",waste="w",woods="d")
+```
+
+### Display mushroom df summary
+```{r summary_mushroom_df,eval=T}
 summary(mushroom_df)
 ```
-###Now, replace the names of the columns in the data set with descriptive attribute names (with underscores replacing hyphens:
-```{r rename-the-columns}
+### Now, replace the names of the columns in the data set with descriptive attribute names (with underscores replacing hyphens:
+```{r rename-the-columns, eval=T}
 names(mushroom_df)=names3
 head(mushroom_df)
 ```
 
 
-```{r}
+```{r summary2, eval=T}
 summary(mushroom_df)
 
 ```
 
-###According to the documentation, a small number of columns provide an excellent prediction of which mushrooms are poisonous:
+### According to the documentation, a small number of columns provide an excellent prediction of which mushrooms are poisonous:
 
-These columns are odor, spore-print-color, stalk-surface-below-ring, and stalk-color-above-ring 
-Rule #1: odor (V6) is not Almond ("a"), Anise ("l"), or None ("n")
-Rule #2: spore-print-color (V21) is Green ("r")
-Rule #3: odor (V6) is None ("n") AND stalk-surface-below-ring (V14) is Scaly ("y") AND stalk-color-above-ring (V15) is NOT brown (n)
-```{r}
+#### These columns are odor, spore-print-color, stalk-surface-below-ring, and stalk-color-above-ring 
+
+
+
+
+#### Rule #1: odor (V6) is not Almond ("a"), Anise ("l"), or None ("n")
+
+```{r rules, eval=T}
 
 # Rule1: odor (V6) is NOT (Almond , Anise , or None) 
 rule1 = (!(mushroom_df$odor == "almond" | mushroom_df$odor == "anise" | mushroom_df$odor == "none"))
 sum(as.integer(rule1))
+```
 
+#### Rule #2: spore-print-color (V21) is Green ("r")
+```{r rule2, eval=T}
 # Rule2: spore-print-color is Green
 rule2 = (mushroom_df$spore_print_color== "green")
 sum(as.integer(rule2))
 
+```
+
+#### Rule #3: odor (V6) is None ("n") AND stalk-surface-below-ring (V14) is Scaly ("y") AND stalk-color-above-ring (V15) is NOT brown (n)
+
+```{r rule3, eval=T}
 # Rule3: odor is None AND 
 #       stalk-surface-below-ring is Scaly AND 
 #       stalk-color-above-ring is NOT brown
 rule3 = ((mushroom_df$odor == "none") & (mushroom_df$stalk_surface_below_ring == "scaly" )&( mushroom_df$stalk_color_above_ring != "brown"))
 sum(as.integer(rule3))
+```
 
-# run logistic regression using just rule 1
+### run logistic regression using just rule 1
+```{r logistic1, eval=T}
 mmodel1 <- glm(poisonous ~ rule1, data = mushroom_df, family="binomial")
 summary(mmodel1)
 model1predictor <- (as.integer(mmodel1$residuals)==1)
 model1errors <- sum(as.integer(model1predictor != poisonous))
 model1errors
+```
 
-# run logistic regression using rules 1 and 2
+### run logistic regression using rules 1 and 2
+```{r logistic12, eval=T}
 mmodel2 <- glm(poisonous ~ rule1 + rule2, data = mushroom_df, family="binomial")
 summary(mmodel2)
 model2predictor <- (as.integer(mmodel2$residuals)==1)
 model2errors <- sum(as.integer(model2predictor != poisonous))
 model2errors
+```
 
-# run logistic regression using rules 1, 2 and 3
+### run logistic regression using rules 1, 2 and 3
+```{r logistic123,eval=T}
 mmodel3 <- glm(poisonous ~ rule1 + rule2 + rule3, data = mushroom_df, family="binomial")
 summary(mmodel3)
 model3predictor <- (as.integer(mmodel3$residuals)==1)
 model3errors <- sum(as.integer(model3predictor != poisonous))
 model3errors
-
 ```
 
 Combining the first three rules gives a result which misses only 8 poisonous mushrooms.
 
-# subsetting the data
+### Subsetting the data
 
 You should include the column that indicates edible or poisonous and three or four other columns. 
 
 You should also add meaningful column names and replace the abbreviations used in the data-for example, in the appropriate column, "e" might become "edible." 
 
-```{r}
+```{r subsets, eval=T}
 mushroom_subsetdf = subset(mushroom_df, select=c(TARGET, odor, spore_print_color, stalk_surface_below_ring, stalk_color_above_ring))
 head(mushroom_subsetdf)
 
 ```
 
-```{r}
+### Summary of subsets
+```{r subsetsummary, eval=T}
 summary(mushroom_subsetdf)
 ```
 
-Your deliverable is the R code to perform these transformation tasks.
+### Your deliverable is the R code to perform these transformation tasks.
 
