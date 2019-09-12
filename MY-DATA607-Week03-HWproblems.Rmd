@@ -1,7 +1,7 @@
 ---
 title: "MY607-Week03-MichaelY-textmanip"
-author: "Michael Y."
-date: "September 15, 2019"
+author: "Michael Y." 
+date: "September 15, 2019" 
 output:
   pdf_document:
     toc: yes
@@ -70,8 +70,8 @@ name_phone_df = data.frame(name = name, phone = phone)
 name_phone_df
 ```
 
+### Use the tools of this chapter to rearrange the vector so that all elements conform to the standard first_name last_name.
 
-#### Use the tools of this chapter to rearrange the vector so that all elements conform to the standard first_name last_name.
 
 The above description is a bit unclear -- I am unsure as to whether this means that titles should be stripped out.     
 Also, in the case of an individual like Mr. Burns, are we to use just the letter "C" as his first name?    
@@ -152,7 +152,7 @@ hasmiddlename = (hastitle & numnameparts == 4) | (!hastitle & numnameparts == 3)
 t(t(hasmiddlename))
 ```
 
-#### Display the list of individuals who have a Middle Name:
+### Display the list of individuals who have a Middle Name:
 ```{r display-middle-name, eval=T}
 name[hasmiddlename]
 ```
