@@ -1,44 +1,73 @@
 ---
-title: "MY-DATA607-Week04-Chess"
+title: "MY607-Week04-Project1-Chess"
 author: "Michael Y."
-date: "September 23, 2018"
+date: "September 22, 2019"
 output:
   html_document:
-    css: ./lab.css
     highlight: pygments
-    keep_md: yes
     theme: cerulean
-  pdf_document: default
+    code_folding: show
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+classoption: landscape
+editor_options:
+  chunk_output_type: inline
 ---
+<style>
+  .main-container {
+    max-width: 1200px !important;
+  }
+</style>---
 
-## Week 4 - Project 1
+# Week 4 - Project 1
 
-### Parse a provided table of results from a Chess tournament, and perform the requested transformations
+## Parse a provided table of results from a Chess tournament, and perform the requested transformations
 
+### Setup
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+directory = "C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201909-Fall/DATA607_Tati_Andy/20190922_Week04/"
+knitr::opts_knit$set(root.dir = directory)
 options(encoding = 'UTF-8')
+### Make the output wide enough
+options(scipen = 999, digits=6, width=95)
 ```
 
-##### Load libraries
-```{r load-libraries, eval=T}
+#### Load libraries
+```{r load-libraries, include=F}
 library(readr)
 library(stringr)
 library(R.utils)
+library(tidyr)
+library(dplyr)
+library(kableExtra)
 ```
 
-##### Load the raw datafile
+\newpage
+### Load the raw datafile (pull from github)
 ```{r load-raw-datafile, eval=T}
-setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201809-Fall/DATA607_Andy_Sabrina/Week04-Project 1")
-inputfile <- "tournamentinfo.txt"
-rawchess <- read_lines(inputfile)
-head(rawchess)
-```
-#### The datafile contains `r length(rawchess)` lines.    
-##### One of every three lines is a separator composed of hyphens, which we will ignore, while the subsequent pair of lines contains information about each participant and the opponents he/she faced in the tournament.
-#### The information about the 64 players is preceded by a pair of lines with header titles.   
+#Avoid using setwd for knitting - instead set directory above in knitr$opts_set
+#setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201909-Spring/DATA607_Tati_Andy_Sabrina/20190922_Week04")
+### inputfile <- "tournamentinfo.txt"
 
-#### Here we will transform the above into an array of 65 lines (one for the header titles, followed by one for each of 64 players): 
+### Obtain the file from github, rather than local drive
+inputfile <- "https://raw.githubusercontent.com/myampol/MY607/master/tournamentinfo.txt"
+rawchess <- read_lines(inputfile)
+head(rawchess,18)
+```
+
+\newpage
+### Analyse the raw datafile:
+The datafile contains `r length(rawchess)` lines.       
+One of every three lines is a separator composed of hyphens, which we will ignore, while the subsequent pair of lines contains information about each participant and the opponents he/she faced in the tournament.    
+The information about the 64 players is preceded by a pair of lines with header titles.     
+Here we will transform the above into an array of 65 lines (one for the header titles, followed by one for each of 64 players).    
+### Transform the input data from `r length(rawchess)` lines into 65 lines:
+
 ```{r reshape-raw-input, eval=T}
 TempOutputArray <- NULL
 TempOutputLine <- ""
@@ -59,21 +88,55 @@ for (row in 1:length(rawchess)) {
     TempOutputArray[TempLineNum] <-TempOutputLine
   }
 }
-head(TempOutputArray)
+head(TempOutputArray) %>% kable() %>%  kable_styling(c("striped", "bordered"))
 ```
-
+\newpage
 #### Split at the pipe separators into elements, and trim the extra spaces preceding and following each element:
 ```{r split-and-trim, eval=T}
+# This is actually a list, but the column names are in the first element
 TrimmedOutputArray <- lapply(strsplit(x=TempOutputArray, split = "\\|"),str_trim)
-head(TrimmedOutputArray)
+
+# extract the initial column names from the first element of the list
+ColumnNames <- as.array(TrimmedOutputArray[[1]])
+
+# create a "list" which has just the remaining 64 entries (sans column names)
+TrimmedOutputList <- TrimmedOutputArray[-c(1)]
+
+# make a data frame from the list (initially no column names)
+TrimmedOutputDF <- as.data.frame(TrimmedOutputList,  cut.names = TRUE, stringsAsFactors = FALSE)
+
+# this didn't quite give what we wanted, because each player is in a column 
+# (i.e., there are 20 rows of features, and 64 columns of players)
+dim(TrimmedOutputDF)
+
+# show just the first two players (otherwise, too wide...)
+head(TrimmedOutputDF[,1:2],14)  %>% kable() %>%  kable_styling(c("striped", "bordered"))
+
+# so we need to transpose the data frame:
+TrimmedOutputDF <- t(TrimmedOutputDF)
+head(TrimmedOutputDF,3)
+
+# however, the rownames and colnames are not as expected
+# so, delete the row names
+rownames(TrimmedOutputDF) <- NULL
+# and, set the column names to the items extracted above
+colnames(TrimmedOutputDF)<- ColumnNames
 ```
 
+\newpage
+```{r display-split-and-trim, eval=T}
+# Display the info on the first 3 players (display transposed, for clarity)
+t(head(TrimmedOutputDF,3))  %>% kable() %>%  kable_styling(c("striped", "bordered"))
 
+```
+
+\newpage
+### Clean up column headers
 #### The column titles are not unique, and do not always make sense:  
 
 ```{r bad-column-titles, eval=T}
 BadColNames <- TrimmedOutputArray[[1]]
-BadColNames
+BadColNames 
 ```
 
 #### so we will replace them with better titles:  
@@ -91,6 +154,7 @@ TrimmedOutputArray[[1]] = BetterColNames
 
 ```
 
+\newpage
 #### Now convert the above array into a **matrix**, where the first line from the array becomes the column names, and the remaining 64 lines become the data:
 
 ```{r make-array-into-matrix, eval=T}
@@ -101,15 +165,16 @@ TrimmedOutputMatrix  <-  matrix(data = unlist(TrimmedOutputArray[2:TotalRows]),
                                 nrow = length(TrimmedOutputArray)-1, 
                                 ncol=length(TrimmedOutputArray[[1]]), 
                                 byrow = T)
-colnames(TrimmedOutputMatrix) <- TrimmedOutputArray[[1]]
-head(TrimmedOutputMatrix)
-tail(TrimmedOutputMatrix)
+colnames(TrimmedOutputMatrix) <- BetterColNames
+head(TrimmedOutputMatrix) 
 ```
 
 #### There were `r TotalRows` total rows in the array, corresponding to `r TotalElements` total elements.   
 ##### This is consistent with having `r names(ColumnCount)` columns on each row.   
 
-##### Ignore whatever number comes after a P, i.e., if a rating is nnnnPxx , use only the first part.
+\newpage
+
+##### On the rating, ignore whatever number comes after a P, i.e., if a rating is nnnnPxx , use only the first part.
 
 ```{r extract-player-ratings}
 df = data.frame(TrimmedOutputMatrix, stringsAsFactors = F)
@@ -130,29 +195,36 @@ cat('Post-tournament ratings for each player:\n')
 df$RatePost
 ```
 
-#### separate out the win/loss/draw/etc. for each player and tally up, in order to determine now many games each played:
+\newpage
+### Compute wins/losses/draws and games played for each player
+
+#### Separate out the win/loss/draw/etc. for each player and tally up, in order to determine now many games each played:
 ```{r separate-win-loss-draw, eval=T}
-### WLD is a 64x7 grid of the individual letters correspondig to each game played (or, not played) per player/round
-WLD = mapply(function(x) str_extract(string = x, pattern = "^."),subset(x = df, select = Round1:Round7))
-cat('Win-Loss-Draw for the various players: \n')
-tail(WLD)
+### WLD is a 64x7 grid of the individual letters corresponding to each game played 
+### (or, not played) per player/round
+WLD = mapply(function(x) str_extract(string = x, 
+                                     pattern = "^."),
+             subset(x = df, 
+                    select = Round1:Round7))
+cat('Win-Loss-Draw for the various players (first 6 displayed) : \n')
+head(WLD)
 
 ### collapseWLD collapses each row into a single string
 collapseWLD = apply(X=WLD,MARGIN = 1, function(rw) str_c(rw,collapse=''))
-cat('The above, collapsed into a string for each player: \n')
-tail(collapseWLD)
+cat('The above, collapsed into a string for each player (first 6 displayed) : \n')
+t(t(head(collapseWLD)))
 ```
 
 #### Determine how many games were W, L, or D (ignoring other items): 
 ```{r table-WLD, eval=T}
 ### compute a table for each row, where the table counts the occurance of each value (W, L, D, or other indicators)
 tempResults1 <- apply(X=WLD, MARGIN = 1, FUN=table)
-cat('table tallying results for each competitor (only the final 6 displayed here:) \n')
-tail(tempResults1)
+cat('list of tables tallying results for each competitor (only the first 6 displayed here:) \n')
+head(tempResults1)
 ```
 
-
-#### tally the number which are "W", "L", or "D" -- (other values such as "U" or "B" indicate that no game was played):
+\newpage
+#### Tally the number which are "W", "L", or "D" -- (other values such as "U" or "B" indicate that no game was played):
 ```{r tally-table-totals, eval=T}
 numgames <- lapply(X = tempResults1, 
                    FUN = function(rw) ifelse(is.na(rw["W"]),0,rw["W"])
@@ -163,26 +235,39 @@ cat('Number of "W", "L", "D" games played by each player: \n')
 df$numgames
 ```
 
-####Extract the list of opponents from the Round1:Round7 columns, so we can look up their ratings:     
-######(Note that there are "NA" values in cases where no game was played)
+#### Extract the list of opponents from the Round1:Round7 columns, so we can look up their ratings:     
+#### (Note that there are "NA" values in cases where no game was played)
 ```{r extract-opponents, eval=T}
 opponents=mapply(function(x) as.integer(str_trim(str_replace(string = x, pattern = "^.",""))),
                  subset(x = df, select = Round1:Round7))
 colnames(opponents) <- sprintf("Opp%d",1:7)
-opponents
+cbind(1:dim(opponents)[1],df$PlayerName,opponents) %>% 
+  head() %>% kable() %>%  kable_styling(c("striped", "bordered"))
 
 ```
 
-##### Append the 7 opponent columns to the dataframe: 
+\newpage
+### Determine the average ratings for each player's opponents, and append all relevant info to the dataframe:
+
+#### Append the 7 opponent columns to the dataframe: 
 
 ```{r append-opponent-ID-columns-to-df, eval=T}
-### CAUTION -- this would duplicate columns if this chunk is re-evaluated manually, 
-### but this is not a problem when knitting the entire result
+### CAUTION -- this would create duplicate columns 
+### if this chunk (alone) were re-evaluated manually, 
+### but this is not a problem when knitting the entire result, 
+### as it can only be executed once
 df <- cbind(df,opponents)
-head(df)
+### First 3 players:
+head(df,3)
 ```
 
+\newpage
+```{r display-transposed-results, eval-T}
+### Transpose, for clarity:
+t(head(df,3)) %>% kable() %>%  kable_styling(c("striped", "bordered"))
+```
 
+\newpage
 #### Look up the ratings for each opponent:
 ```{r lookup-opponent-ratings, eval=T}
 oppPreRatings=apply(opponents,
@@ -191,21 +276,27 @@ oppPreRatings=apply(opponents,
 ### set the the column names
 colnames(oppPreRatings) <- sprintf("OppPreRate%d",1:7)
 cat('Opponent ratings, prior to the tournament: \n')
+head(cbind(1:dim(opponents)[1],df$PlayerName,oppPreRatings),22)  %>% 
+  kable() %>%  kable_styling(c("striped", "bordered"))
 ```
 
-
+\newpage
 #### Append the 7 opponent rating columns to the dataframe:
 
 ```{r append-opponent-rating-columns-to-df, eval=T}
 ### CAUTION -- this would duplicate columns if this chunk is re-evaluated manually, 
 ### but this is not a problem when knitting the entire result
-
-oppPreRatings
 df <- cbind(df,oppPreRatings)
+### display first 3 players, transposed, for clarity
+t(head(df,n = 3))   %>% kable() %>%  kable_styling(c("striped", "bordered"))
 ```
 
-##### Compute the average opponent rating, for each participant: 
+\newpage
+#### Compute the average opponent rating, for each participant: 
 ```{r average-opponent-ratings, eval=T}
+# use na.rm=T to omit the NA values
+# divide by the number of opponents played 
+# (in the case where no game was played, opponent=NA and numgames < 7)
 AvgOppRatePre <- rowSums(oppPreRatings,na.rm=T)/df$numgames
 cat('Average opponent rating, prior to the tournament: \n')
 AvgOppRatePre
@@ -213,7 +304,7 @@ AvgOppRatePre
 df$AvgOppRatePre <- AvgOppRatePre
 ```
 
-##### doublecheck to be sure that rowSums/numgames gives the same result as rowMeans: 
+#### doublecheck to be sure that rowSums/numgames gives the same result as rowMeans: 
 
 ```{r doublecheck-rowMeans}
 rowMeans(oppPreRatings,na.rm = T)
@@ -221,18 +312,22 @@ rowMeans(oppPreRatings,na.rm = T)
 rowSums(oppPreRatings,na.rm=T)/df$numgames - rowMeans(oppPreRatings,na.rm = T)
 ```
 
-##### The input data has the names entirely capitalized:   
+\newpage
+### Clean up the capitalization of player names:
+
+#### The input data has the names entirely capitalized:   
 
 ```{r all-caps-names, eval=T}
 cat('Initial name format supplied in input data: \n')
-head(df$PlayerName)
+t(t(head(df$PlayerName)))
 ```
 
-##### but the sample output shows just the first letter on each name component capitalized:
+#### but the sample output shows just the first letter on each name component capitalized:
 ```{r change-name-capitalization, eval=T}
 ##library(R.utils) ## loaded at top
 
-# lowercase each name, and then separate each into an array of strings, so "capitalize"" will operate on each component
+# lowercase each name, and then separate each into an array of strings, 
+# so "capitalize"" will operate on each component
 CapitalList <- lapply(strsplit(x = tolower(df$PlayerName), 
                               split = " "),
                      capitalize)
@@ -245,17 +340,18 @@ head(CapitalList)
 
 CapitalNameArray=unlist(lapply( X = CapitalList, 
                                 FUN= function(name) paste(name, collapse=" ")))
-cat('Each name pasted back together again, in array format: \n')
-head(CapitalNameArray)
+cat('Each name pasted back together again: \n')
+t(t(head(CapitalNameArray)))
 
-# add Capitalized Name to the data frame
+# append Capitalized Name as a new column in the data frame
 df$CapitalizedName = CapitalNameArray
 ```
 
-##### Select output columns for final result into smaller dataframe:
+\newpage
+### Select output columns for final result into smaller dataframe:
 ```{r select-output-columns, eval=T}
 OutputColumns = c("CapitalizedName","State", "TotalPts", "RatePre", "AvgOppRatePre")
-OutputDF <- subset(x = df, select = OutputColumns)
+FinalOutputDF <- subset(x = df, select = OutputColumns)
 
 ##### improve the column headers, to match the assignment
 OutputHeaders <- c("Player's Name", 
@@ -263,22 +359,29 @@ OutputHeaders <- c("Player's Name",
                    "Total Number of Points", 
                    "Player's Pre-Rating",
                    "Average Pre Chess Rating of Opponents")
-colnames(x = OutputDF) <- OutputHeaders
-head(OutputDF)
+colnames(x = FinalOutputDF) <- OutputHeaders
+head(FinalOutputDF,22) %>% kable() %>%  kable_styling(c("striped", "bordered"))
 ```
 
-#### write the results into a .csv file: 
+### Write the results into a .csv file: 
 
 ```{r write-results-to-csv, eval=T}
-head(OutputDF)
+head(FinalOutputDF)
 options(encoding = 'UTF-8')
-filename <- "MY-DATA607-Week04-ChessData.csv"
-write.csv(OutputDF, filename, row.names=FALSE)
+results_filename <- "MY-DATA607-Week04-ChessData.csv"
+write.csv(FinalOutputDF, results_filename, row.names=FALSE)
 ```
 
-#### re-read the results and display them:
+\newpage
+### Re-read the results (stored in github, rather than local drive) and display them:
 ```{r reread-results, eval=T}
-re_read_output <- read_lines(filename)
+# read the results from local disk
+# re_read_output <- read_lines(results_filename)
+
+# Read the results from file (previously) posted to github
+github_filename <- 
+  "https://raw.githubusercontent.com/myampol/MY607/master/MY-DATA607-Week04-ChessData.csv"
+re_read_output <- read_lines(github_filename)
 cat (re_read_output, sep = '\n')
 ```
 
