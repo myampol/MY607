@@ -1,0 +1,124 @@
+---
+title: "MY-DATA607-Week09-NYTimes-API"
+author: "Michael Y."
+date: "October 27, 2019"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+    keep_md: yes
+  html_document:
+    highlight: pygments
+    theme: cerulean
+    code_folding: show
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+classoption: landscape
+editor_options:
+  chunk_output_type: inline
+---
+<style>
+  .main-container {
+    max-width: 1200px !important;
+  }
+</style>
+---
+
+# Week 9 - Assignment - Web APIs (NY Times)
+
+The New York Times web site provides a rich set of APIs, as described [here](http://developer.nytimes.com/docs).
+
+You’ll need to start by signing up for an API key.
+
+Your task is to choose one of the New York Times APIs, construct an interface in R to read in the JSON data, and transform it into an R DataFrame. 
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/Michael/Dropbox/priv/CUNY/MSDS/201909-Fall/DATA607_Tati_Andy/20191027_Week09")
+```
+
+
+#### Load libraries
+```{r load-libraries, message=FALSE, warning=FALSE}
+library(XML)
+library(rlist)
+library(knitr)
+library(kableExtra)
+library(jsonlite)
+library(RCurl)
+library(tidyr)
+library(dplyr)
+```
+
+
+
+### Since Hallowe'en is in a few days, let's look for articles on this topic
+```{r retrieve_NYT, eval=T}
+
+# API key from website registration
+MY_api_key <- "&api-key=WUNJOM1fVGLXpEzPYnHXnhONs8fFYU9V"
+
+# search for articles with keyword "halloween"
+url <- "http://api.nytimes.com/svc/search/v2/articlesearch.json?q=halloween"
+request <- paste0(url, "&", MY_api_key)
+result <- fromJSON(request)
+
+```
+
+```{r process_results, eval=T}
+
+#pull $docs from result
+NYT_docs <- result$response$docs
+
+### Confirm that it's a dataframe
+class(NYT_docs)
+
+#get the column names
+NYT_colnames <- colnames(NYT_docs)
+t(t(NYT_colnames))
+```
+
+There is a lot of data here, not all of it interesting...
+
+### pull web_url from NYT_docs
+```{r web_url, eval=T, warning=F}
+NYT_web_url <- NYT_docs$web_url
+NYT_web_url %>% 
+  kable(col.names="Web_URL",row.names=1:10) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+### pull snippet from NYT_docs
+```{r snippet, eval=T, warning=F}
+NYT_snippet <- NYT_docs$snippet
+NYT_snippet %>% 
+  kable(col.names="Snippet",row.names=1:10) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+
+### pull lead_paragraph from NYT_docs
+```{r lead paragraph, eval=T, warning=F}
+NYT_lead <- NYT_docs$lead_paragraph
+NYT_lead %>% 
+  kable(col.names="Lead Paragraph",row.names=1:10) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+### pull abstract from NYT_docs
+```{r abstract, eval=T, warning=F}
+NYT_abstract <- NYT_docs$abstract
+NYT_abstract %>% 
+  kable(col.names="Abstract",row.names=1:10) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+### fashion my own data frame
+```{r MY_NYT_df, eval=T, warning=F}
+MY_NYT_df <- data.frame(NYT_web_url, NYT_snippet, NYT_lead, NYT_abstract)
+MY_NYT_df %>% kable(row.names=1:10) %>% 
+  column_spec(.,column = 1, width = "10em") %>% 
+  kable_styling(c("striped", "bordered"))
+```
