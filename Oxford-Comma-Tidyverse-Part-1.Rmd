@@ -1,0 +1,706 @@
+---
+title: "Oxford-Comma-Tidyverse-Part-1"
+author: "Michael Y."
+date: "due 12/08/2019"
+output:
+  pdf_document:
+    md_extensions: +grid_tables
+    toc: yes
+    toc_depth: 5
+    keep_md: yes
+  md_document:
+    variant: markdown_github
+  html_document:
+    highlight: pygments
+    theme: cerulean
+    code_folding: show
+    toc: yes
+    toc_float: yes
+    toc_depth: 5
+    md_extensions: +grid_tables
+    keep_md: yes
+always_allow_html: true
+classoption: landscape
+editor_options:
+  chunk_output_type: inline
+header-includes: 
+- \usepackage{graphicx}
+- \usepackage{float}
+---
+
+<style>
+  .main-container {
+    max-width: 1200px !important;
+  }
+</style>
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999, digits=6, width=150)
+```
+
+\newpage
+# TidyVerse assignment, due on 12/08
+
+In this assignment, you’ll practice collaborating around a code project with GitHub.  
+You could consider our collective work as building out a book of examples on how to use TidyVerse functions.   
+
+
+GitHub repository:  https://github.com/acatlin/FALL2019TIDYVERSE 
+
+[FiveThirtyEight.com datasets](https://data.fivethirtyeight.com/) .
+
+[Kaggle datasets](https://www.kaggle.com/datasets) . 
+
+```{r loadup, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+# Load libraries
+library(tidyverse)
+
+#library(tidyverse) will load the core tidyverse packages:
+# ggplot2, for data visualisation.
+# dplyr, for data manipulation.
+# tidyr, for data tidying.
+# readr, for data import.
+# purrr, for functional programming.
+# tibble, for tibbles, a modern re-imagining of data frames.
+# stringr, for strings.
+# forcats, for factors.
+
+library(kableExtra)
+library(psych)
+library(vcd)
+library(questionr)
+library(rcompanion)
+
+options(scipen = 999, digits=6, width=140)
+```
+
+
+## You have two tasks:
+
+## 1. Create an Example.  
+Using one or more TidyVerse packages, and any dataset from [fivethirtyeight.com](https://data.fivethirtyeight.com/) or [Kaggle](https://www.kaggle.com/datasets), create a programming sample “vignette” that demonstrates how to use one or more of the capabilities of the selected TidyVerse package with your selected dataset. **(25 points)**
+
+
+### Oxford Comma dataset
+
+In June of 2014, `FiveThirtyEight.com` ran an online poll (using "surveymonkey.com") asking Americans whether they preferred the serial comma (also known as the `Oxford Comma`.)  
+
+Additional questions were posed regarding the respondents' educational level, income level, age, and what part of the country each person was from.  
+
+Additional grammatical questions which were part of the same poll concerned usage of the word "data": respondents were asked whether they considered "data" to be *singular* or *plural*. 
+
+Following conclusion of the poll, FiveThirtyEight.com published a piece ***Elitist, Superfluous, Or Popular? We Polled Americans on the Oxford Comma***[$^1$](#a) and made the **underlying dataset**[$^2$](#b) available on github .
+
+\newpage
+#### **Variables in the dataset** 
+
+The raw dataset contains 1129 cases, each of which represents a response to an online poll conducted in June 2014, where participants were asked various questions, including:
+
+1) whether they knew what the Oxford Comma is, 
+2) which of two sentences (one with the serial comma, and one without) they preferred, and 
+3) whether they believed the use of proper grammar was important.
+
+Additionally, participants were asked questions regarding their gender, age, income, educational attainment, and geographic region.
+
+The overall dataset includes the following variables and possible responses:
+
+n |variable           | question or description         | type       | data dictionary
+|:-:|:----------------:|:-------------------------------:|:----------:|:-------------:|
+ 1 |`RespondentID`     | numerical ID of participant | numerical, discrete |unique identifiers assigned by the survey site (surveymonkey.com)
+ 2 |`USES_Oxford`      |"In your opinion, which sentence is more gramatically correct?" | categorical, nominal | 1-"It's important for a person to be honest, kind and loyal." 2-"It's important for a person to be honest kind and loyal."
+ 3 |`HEARD_Oxford`     | "Prior to reading about it above, had you heard of the serial (or Oxford) comma?" | categorical, binary | "No", "Yes"
+ 4 |`CARE_Oxford`      | "How much, if at all, do you care about the use (or lack thereof) of the serial (or Oxford) comma in grammar?" | categorical, ordinal | "Not at All" , "Not Much" , "Some" , "A lot"
+ 5 |`DATA_Sentence`    |"How would you write the following sentence?" (One uses "Data" as singular, the other as plural) | categorical, binary | Plural: "Some experts say it's important to drink milk, but the data are inconclusive." ; Singular: "Some experts say it's important to drink milk, but the data is inconclusive."
+ 6 |`DATA_Plural`      |"When faced with using the word 'data', have you ever spent time considering if the word was a singular or plural noun?"|categorical, binary | "Yes", "No"
+ 7 |`DATA_Care`        |"How much, if at all, do you care about the debate over the use of the word 'data' as a singluar or plural noun?" | categorical, ordinal | "Not at All" , "Not Much" , "Some" , "A lot"
+ 8 |`Grammar_Important`|"In your opinion, how important or unimportant is proper use of grammar?" |Categorical, ordinal|"Very unimportant", "Somewhat unimportant", "Neither important nor unimportant (neutral)", "Somewhat important", "Very important"
+ 9 |`Gender`           |Participant's gender (only "Male" and "Female" choices offered)|Categorical, binary| "Female", "Male"
+10 |`AgeBands`              |Participant's age, in one of four bands                        |Categorical, ordinal| "18-29", "30-44", "45-60", "> 60"
+11 |`IncomeBands`           |Participant's household income, in one of five bands           |Categorical, ordinal| "\$0     -\$24,999" , "\$25,000-\$49,999" , "\$50,000-\$99,999" , "\$100,000-\$149,999" , "\$150,000+"
+12 |`Education`        |Participant's level of education, in one of five categories    |Categorical, ordinal| "Less than high school degree", "High school degree", Some college or Associate degree", "Bachelor degree", "Graduate degree"
+13 |`Location`         |Participant's geographic location, in one of 9 regions         |Categorical, nominal| "New England","Middle Atlantic","South Atlantic"," East North Central","East South Central","West North Central","West South Central","Mountain","Pacific"
+
+So, other than the initial column, all the remaining columns are factors.
+
+\newpage
+#### `readr::read_csv`: Initial attempt to load up the data from fivethirtyeight's github site:
+```{r load-data, eval=T}
+commadataURL <- "https://raw.githubusercontent.com/fivethirtyeight/data/master/comma-survey/comma-survey.csv"
+### Read the data using read_csv from tidyverse package readr
+tv_commadata <- read_csv(commadataURL)
+
+```
+
+\newpage
+#### Without my having made any column specifications, `read_csv` hasn't read in the data as we would like:
+```{r summary1}
+# First 5 cases
+tv_commadata %>% head(5)
+
+# First 5 cases, transposed:
+tv_commadata %>% head(5) %>% t
+tv_commadata %>%
+  head(5) %>%
+  t %>%
+  kable() %>%
+  kable_styling(c("striped", "bordered"))
+
+tv_commadata %>% summary %>%
+  kable() %>%
+  kable_styling(c("striped", "bordered"))
+
+```
+
+It read in the first column as a double, and all of the remaining columns as characters.   
+
+In reality, we want each of the remaining columns to be a **factor**, with only a few possible responses.
+
+#### `readr::spec_csv()` can specify the type of each column
+```{r specify_as_factors}
+tv_columnspec = paste0(c("n",rep("f",12)),collapse="")
+tv_columnspec
+```
+
+This indicates that the first column is numeric, and each of the remaining 12 columns is a factor.
+
+##### Check result with `readr::spec_csv`
+```{r spec_csv}
+spec_csv(commadataURL, col_types=tv_columnspec)
+```
+\newpage
+#### `readr::read_csv`: Re-load the data, this time specifying the above column types:
+```{r reload-data}
+tv_commadata <- read_csv(commadataURL, col_types = tv_columnspec)
+tv_commadata %>% summary
+```
+
+Now the data are all recognized as (unordered) factors.
+
+\newpage
+#### The initial variable names were awful.
+
+##### `dplyr::bind_cols()` as tidyverse equivalent to cbind() :
+```{r echo=T, eval=T,  warning=FALSE, message=FALSE}
+initial_variable_names <- names(tv_commadata)
+
+# index the variable names using bind_cols from dplyr
+bind_cols(column=seq(initial_variable_names),
+          InitialVariableName=initial_variable_names) %>% 
+  kable() %>% 
+  kable_styling(c("striped", "bordered"))
+
+
+```
+
+Because these "variables" are so long, it is difficult to display the information.   
+I'll replace each column header with a succinct name, while saving the above questions in an array.   
+
+\newpage
+#### `dplyr::rename_all`: rename all of the variable names::
+```{r manipulate-data-0, echo=T, eval=T}
+new_variable_names <- c("RespondentID",
+                        "USES_Oxford",
+                        "HEARD_Oxford",
+                        "CARE_Oxford",
+                        "DATA_Sentence",
+                        "DATA_Plural",
+                        "DATA_Care",
+                        "Grammar_Important",
+                        "Gender",
+                        "AgeBands",
+                        "IncomeBands",
+                        "Education",
+                        "Location")
+
+tv_commadata <- tv_commadata %>% rename_all( function(.){new_variable_names} )
+tv_commadata %>% summary
+
+```
+
+\newpage
+#### Here are the first five records:
+```{r head2}  
+
+tv_commadata %>% 
+  head(5)
+
+# using kable:
+tv_commadata %>% 
+  head(5) %>% 
+  kable() %>% 
+  kable_styling(c("striped", "bordered"))
+```
+
+\newpage
+#### Here are the same, transposed for display:
+```{r head3}  
+tv_commadata %>% 
+  head(5) %>% 
+  t
+
+#using kable
+tv_commadata %>% 
+  head(5) %>% 
+  t %>%
+  kable() %>% 
+  kable_styling(c("striped", "bordered"))
+```
+
+Despite changing the column headers, we still can't easily see all the information because the text of certainresponses is so long.
+
+***
+\newpage
+### Manipulate Data
+
+I made various adjustments to the initial data, including: 
+
+
+#### Recategorize variable[2] `USES_Oxford`  as "True" or "False"
+
+##### `forcats::fct_count()`: Count the number of responses of each type
+```{r count-data-2}
+tv_commadata$USES_Oxford %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[2],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+##### `forcats::fct_recode`: Recode levels as (F,T)
+```{r recode_levels2}
+oldlevels2 <- tv_commadata$USES_Oxford %>% levels()
+tv_commadata$USES_Oxford <- tv_commadata$USES_Oxford %>% 
+  fct_recode(F=oldlevels2[1],T=oldlevels2[2])
+
+### display results
+tv_commadata$USES_Oxford %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[2],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+##### Plot result using ggplot2
+###### use scale_fill_manual to specify my own color choice
+```{r ggplot-USES_Oxford}
+myColors <- c("pink","lightgreen")
+ggplot(tv_commadata, aes(x=USES_Oxford,fill=USES_Oxford)) +
+  geom_bar()+
+  scale_fill_manual(values=myColors) +
+  geom_text(stat='count', aes(label=..count..), vjust=1) +
+  labs(title="Bar Chart: Do participants prefer to use the Oxford Comma?", 
+       caption="Source: Five-Thirty-Eight survey")
+
+```
+
+***
+\newpage
+#### Resequence the (unordered) levels for [4] `CARE_Oxford` to reflect the semantic ordering:
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-4}
+tv_commadata$CARE_Oxford %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[4],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the sequence in which the responses are listed ("Some","Not Much","A lot","Not at all") does not reflect their semantic ordering.  
+We would like to list the values in the sequence from worst to best, i.e., 
+
+* "Not at all",
+* "Not much",
+* "Some",
+* "A lot" , followed by 
+* NA.
+
+##### `fct_relevel`: Resequence the levels for the factor
+###### to reflect how much does the participant ***care about*** the Oxford Comma
+```{r manipulate-data-4, echo=T} 
+### use fct_relevel from library `forcats` to sort the CARE_Oxford levels ordinally
+tv_commadata$CARE_Oxford <- tv_commadata$CARE_Oxford %>% 
+  fct_relevel(levels(tv_commadata$CARE_Oxford)[c(4,2,1,3)]) 
+### display results
+tv_commadata$CARE_Oxford %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[4],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+
+##### Plot result using ggplot2
+###### Use theme(plot.title = element_text(size = 10))
+###### to prevent long text from overflowing the page
+```{r ggplot-CARE_Oxford}
+ggplot(tv_commadata, aes(x=CARE_Oxford,fill=CARE_Oxford)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=1) +
+  labs(title=initial_variable_names[4], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 10))
+
+```
+
+
+
+
+***
+\newpage
+#### Recategorize the responses to [5] `DATA_Sentence` to reflect "PLURAL" or "SINGULAR"
+
+##### `forcats::fct_count()`: Count the number of responses of each type
+```{r count-data-5}
+tv_commadata$DATA_Sentence %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[5],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+##### Replace the above sentences with the word "SINGULAR" or "PLURAL" to reflect user preference
+
+##### `forcats::fct_recode`: Recode levels as "SINGULAR" or "PLURAL"
+```{r recode_levels5}
+oldlevels5 <- tv_commadata$DATA_Sentence %>% levels()
+tv_commadata$DATA_Sentence <- tv_commadata$DATA_Sentence %>% 
+  fct_recode("SINGULAR"=oldlevels5[1],"PLURAL"=oldlevels5[2])
+
+### display results
+tv_commadata$DATA_Sentence %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[5],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+##### Plot result using ggplot2
+
+```{r ggplot-DATA_Sentence}
+ggplot(tv_commadata, aes(x=DATA_Sentence,fill=DATA_Sentence)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=1) +
+  labs(title='Bar Chart: Do participants consider "DATA" to be singular or plural?', 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12))
+
+
+```
+
+
+
+
+
+***
+\newpage
+#### Resequence the (unordered) levels for [7] `DATA_Care` to reflect the semantic ordering:
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-7}
+tv_commadata$DATA_Care %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[7],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the sequence in which the responses are listed ("Not Much","Not at all","Some","A lot") does not reflect their semantic ordering.  We need to flip the sequence of the first two items, because
+we would like to list the values in the sequence from worst to best, i.e., 
+
+* "Not at all",
+* "Not much",
+* "Some",
+* "A lot" , followed by 
+* NA.
+
+##### `fct_relevel`: Resequence the levels for the factor `DATA_Care`
+###### to reflect how much does the participant ***care about*** care about whether "Data" is considered Singular or Plural
+```{r manipulate-data-7, echo=T} 
+### use fct_relevel from library `forcats` to sort the DATA_Care levels ordinally
+tv_commadata$DATA_Care <- tv_commadata$DATA_Care %>% 
+  fct_relevel(levels(tv_commadata$DATA_Care)[c(2,1,3,4)]) 
+### display results
+tv_commadata$DATA_Care %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[7],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+
+##### Plot result using ggplot2
+###### Use theme(plot.title = element_text(size = 10))
+###### to prevent long text from overflowing the page
+```{r ggplot-DATA_Care}
+ggplot(tv_commadata, aes(x=DATA_Care,fill=DATA_Care)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=1) +
+  labs(title=initial_variable_names[7], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 10))
+
+
+```
+
+
+
+***
+\newpage
+
+#### Resequence the (unordered) levels for [8] `Grammar_Important` to reflect the semantic ordering
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-8}
+tv_commadata$Grammar_Important %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[8],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the sequence in which the responses are listed, 
+
+* "Somewhat important",
+* "Somewhat unimportant",
+* "Very important",	
+* "Very unimportant",
+* "Neither important nor unimportant (neutral)"
+
+does not reflect their semantic ordering.  We need to reorder the sequence because
+we would like to list the values in the sequence from worst to best, i.e., 
+
+* "Very unimportant",
+* "Somewhat unimportant",
+* "Neither important nor unimportant (neutral)"
+* "Somewhat important",
+* "Very important", followed by 
+* NA.
+
+##### `forcats::fct_recode`: Recode level ""Neither important nor unimportant (neutral)" as "NEUTRAL" because it is too long
+```{r recode_levels8}
+oldlevels8 <- tv_commadata$Grammar_Important %>% levels()
+tv_commadata$Grammar_Important <- tv_commadata$Grammar_Important %>% 
+  fct_recode("NEUTRAL"=oldlevels8[5])
+
+### display results
+tv_commadata$Grammar_Important %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[8],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+
+##### `fct_relevel`: Resequence the (unordered) levels for [8] `Grammar_Important` to reflect the ordering:
+
+```{r manipulate-data-8, echo=T} 
+### use fct_relevel from library `forcats` to sort the Grammar_Important levels ordinally
+tv_commadata$Grammar_Important <- tv_commadata$Grammar_Important %>% 
+  fct_relevel(levels(tv_commadata$Grammar_Important)[c(4,2,5,1,3)]) 
+### display results
+tv_commadata$Grammar_Important %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[8],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+##### Plot result using ggplot2
+###### use coord_flip() to make the bars horizontal, to make space for the headings
+```{r ggplot-Grammar_Important}
+ggplot(tv_commadata, aes(x=Grammar_Important,fill=Grammar_Important)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), hjust=1) +
+  labs(title=initial_variable_names[8], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12))+
+  coord_flip()
+
+```
+
+***
+\newpage
+
+#### Resequence the (unordered) levels for [10] `AgeBands` to reflect the ordering of the bands:  
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-10}
+tv_commadata$AgeBands %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[10],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the above Age Bands are not listed in sequence from youngest to oldest.    
+
+We need to resequence the levels in order to fix this:
+
+```{r manipulate-data-10, echo=T} 
+### use fct_relevel from library `forcats` to sort the AgeBands levels ordinally
+tv_commadata$AgeBands <- tv_commadata$AgeBands %>% 
+  fct_relevel(levels(tv_commadata$AgeBands)[c(2,1,4,3,5)]) 
+### display results
+tv_commadata$AgeBands %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[10],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+
+
+##### Plot the Age of participants  using ggplot2
+
+```{r ggplot-AgeBands}
+ggplot(tv_commadata, aes(x=AgeBands,fill=AgeBands)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=1) +
+  labs(title=initial_variable_names[10], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12))
+
+```
+
+
+***
+\newpage
+
+#### Resequence the (unordered) levels for [11] `IncomeBands` to reflect the ordering of Income, from lowest to highest:  
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-11}
+tv_commadata$IncomeBands %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[11],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the above Income Bands are not listed in sequence from lowest to highest.    
+
+We need to resequence the levels in order to fix this:
+
+```{r manipulate-data-11, echo=T} 
+### use fct_relevel from library `forcats` to sort the IncomeBands levels ordinally
+tv_commadata$IncomeBands <- tv_commadata$IncomeBands %>% 
+  fct_relevel(levels(tv_commadata$IncomeBands)[c(3,2,1,5,4,6)]) 
+### display results
+tv_commadata$IncomeBands %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[11],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+
+##### Plot the Income of participants using ggplot2
+###### use axis.text.x=element_text(angle=30) to rotate the column headings
+```{r ggplot-IncomeBands}
+ggplot(tv_commadata, aes(x=IncomeBands,fill=IncomeBands)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=1) +
+  labs(title=initial_variable_names[10], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x=element_text(angle=30, hjust=1))
+
+```
+
+***
+\newpage
+
+#### Resequence the (unordered) levels for [12] `Education` to reflect the ordering of Educational Attainment:  
+
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-12}
+tv_commadata$Education %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[12],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the above Education levels are not listed in sequence from lowest to highest.    
+
+We need to resequence the levels in order to obtain the desired sequence:
+
+```{r manipulate-data-12, echo=T} 
+### use fct_relevel from library `forcats` to sort the Education levels ordinally
+tv_commadata$Education <- tv_commadata$Education %>% 
+  fct_relevel(levels(tv_commadata$Education)[c(3,5,4,1,2,6)]) 
+### display results
+tv_commadata$Education %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[12],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+#### Plot the Education Level of participants using ggplot2
+
+```{r ggplot-Education}
+ggplot(tv_commadata, aes(x=Education,fill=Education)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), hjust=1) +
+  labs(title=initial_variable_names[12], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12))+
+  coord_flip()
+
+```
+
+***
+\newpage
+
+#### Resequence the (unordered) levels for [13] `Location` to reflect to reflect geography (east coast to west coast): 
+
+
+##### `forcats::fct_count()`: Count the number of responses of each type 
+```{r count-data-13}
+tv_commadata$Location %>% fct_count() %>%
+  kable(col.names=c(initial_variable_names[13],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+Note that the above Locations levels are not listed to reflect geography (east coast to west coast; north to south):     
+
+We need to resequence the levels in order to obtain the desired sequence:
+
+* New England,
+* Middle Atlantic,
+* South Atlantic,
+* East North Central,
+* East South Central,
+* West North Central,
+* West South Central,
+* Mountain,	
+* Pacific, followed by
+* NA
+
+```{r manipulate-data-13, echo=T} 
+### use fct_relevel from library `forcats` to sort the Location data geographically
+tv_commadata$Location <- tv_commadata$Location %>% 
+  fct_relevel(levels(tv_commadata$Location)[c(5,4,1,3,7,8,9,2,6)])
+### display results
+tv_commadata$Location %>% fct_count() %>%
+  kable(col.names=c(new_variable_names[13],"Count")) %>%  
+  kable_styling(c("striped", "bordered"))
+```
+
+#### Plot the Location of respondents using ggplot2
+
+```{r ggplot-Location}
+ggplot(tv_commadata, aes(x=Location,fill=Location)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), hjust=1) +
+  labs(title=initial_variable_names[13], 
+       caption="Source: Five-Thirty-Eight survey")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12))+
+  coord_flip()
+
+```
+
+
+
+
+
+***
+\newpage
+
+
+
+
+#### [1] `RespondentID` should not impact the results -- it is just an identifier, so drop it
+##### `dplyr::select(-[columnname])`:  Drop variable [1] `RespondentID`
+```{r manipulate-data-1}
+tv_commadata <- tv_commadata %>% select(-RespondentID)
+
+```
+
+***
+\newpage
+
+
+\newpage
+### ***References***
+
+1. <a name="a"/> Hickey, Walt, "Elitist, Superfluous, Or Popular? We Polled Americans on the Oxford Comma" (June 17, 2014), FiveThirtyEight.com . Retrieved December 1, 2019, from  <https://fivethirtyeight.com/features/elitist-superfluous-or-popular-we-polled-americans-on-the-oxford-comma/>.
+
+2. <a name="b"/> FiveThirtyEight.com survey of Oxford Comma Usage (2014, June). Retrieved December 1, 2019, from  <https://raw.githubusercontent.com/fivethirtyeight/data/master/comma-survey/comma-survey.csv>.   
+
+
+***
+# End of Part 1
+
